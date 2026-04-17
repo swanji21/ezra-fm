@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LW","RW","ST"];
 
@@ -208,9 +208,9 @@ function Pitch({formation,lineup,players,onSlot,selSlot}){
 
 export default function App(){
   const [nav, setNav] = useState("선수");
-  const [teams, setTeams] = useState(INIT_TEAMS);
-  const [players, setPlayers] = useState(INIT_PLAYERS);
-  const [sel, setSel] = useState(INIT_PLAYERS[0]);
+ const [teams, setTeams] = useState(()=>{ try{ const s=localStorage.getItem("ezra-teams"); return s?JSON.parse(s):INIT_TEAMS; }catch(e){return INIT_TEAMS;} });
+  const [players, setPlayers] = useState(()=>{ try{ const s=localStorage.getItem("ezra-players"); return s?JSON.parse(s):INIT_PLAYERS; }catch(e){return INIT_PLAYERS;} });
+  const [sel, setSel] = useState(()=>{ try{ const s=localStorage.getItem("ezra-players"); return s?JSON.parse(s)[0]:INIT_PLAYERS[0]; }catch(e){return INIT_PLAYERS[0];} });
   const [dtab, setDtab] = useState("개요");
   const [aCat, setACat] = useState("기술");
   const [editing, setEditing] = useState(false);
@@ -230,6 +230,22 @@ export default function App(){
 
   const photoRef = useRef();
   const editPhotoRef = useRef();
+
+  // 데이터 저장/불러오기
+  useEffect(() => {
+    const sp = localStorage.getItem("ezra-players");
+    const st = localStorage.getItem("ezra-teams");
+    if(sp){ const p=JSON.parse(sp); setPlayers(p); setSel(p[0]||null); }
+    if(st){ setTeams(JSON.parse(st)); }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("ezra-players", JSON.stringify(players));
+  }, [players]);
+
+  useEffect(() => {
+    localStorage.setItem("ezra-teams", JSON.stringify(teams));
+  }, [teams]);
 
   const teamMap = useMemo(()=>Object.fromEntries(teams.map(t=>[t.id,t])),[teams]);
   const display = editing ? editD : sel;
