@@ -169,10 +169,42 @@ function GrowthLine({history}){
   );
 }
 
-function Pitch({formation,lineup,players,onSlot,selSlot}){
+function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd}){
   const slots = FORMATIONS[formation]||[];
+  const pitchRef = useRef();
+  const dragging = useRef(null);
+
+  function getPos(e, el){
+    const rect = el.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = Math.max(5, Math.min(95, ((clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(5, Math.min(95, ((clientY - rect.top) / rect.height) * 100));
+    return {x, y};
+  }
+
+  function onMouseDown(e, i){
+    e.preventDefault();
+    dragging.current = i;
+    const move = ev => {
+      if(dragging.current===null) return;
+      const pos = getPos(ev, pitchRef.current);
+      onDragEnd(dragging.current, pos);
+    };
+    const up = () => {
+      dragging.current = null;
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      window.removeEventListener('touchmove', move);
+      window.removeEventListener('touchend', up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    window.addEventListener('touchmove', move, {passive:false});
+    window.addEventListener('touchend', up);
+  }
   return (
-    <div style={{position:"relative",width:"100%",maxWidth:360,aspectRatio:"0.63",background:"#0a2010",borderRadius:10,overflow:"hidden",border:"2px solid #1a4020",margin:"0 auto"}}>
+    <div ref={pitchRef} style={{position:"relative",width:"100%",maxWidth:360,aspectRatio:"0.63",background:"#0a2010",borderRadius:10,overflow:"hidden",border:"2px solid #1a4020",margin:"0 auto",userSelect:"none"}}>
       <svg style={{position:"absolute",inset:0,width:"100%",height:"100%"}} viewBox="0 0 100 158" preserveAspectRatio="none">
         {[0,1,2,3,4,5,6].map(i=><rect key={i} x={0} y={i*23} width={100} height={11.5} fill={i%2===0?"#0a2010":"#0c2412"} />)}
         <rect x={3} y={3} width={94} height={152} fill="none" stroke="#1e5a30" strokeWidth={0.8} />
@@ -185,9 +217,13 @@ function Pitch({formation,lineup,players,onSlot,selSlot}){
         const pid=lineup[i], pl=players.find(x=>x.id===pid)||null;
         const v=pl?ovr(pl.attrs):null, isSel=selSlot===i;
         const c=v?getColor(v):"#2a4a6a";
+        const pos = (slotPositions&&slotPositions[i]) || slot;
         return (
-          <div key={i} onClick={()=>onSlot(i)}
-            style={{position:"absolute",left:`${slot.x}%`,top:`${slot.y}%`,transform:"translate(-50%,-50%)",display:"flex",flexDirection:"column",alignItems:"center",cursor:"pointer",zIndex:2}}>
+          <div key={i}
+            onMouseDown={e=>onMouseDown(e,i)}
+            onTouchStart={e=>onMouseDown(e,i)}
+            onClick={()=>onSlot(i)}
+            style={{position:"absolute",left:`${pos.x}%`,top:`${pos.y}%`,transform:"translate(-50%,-50%)",display:"flex",flexDirection:"column",alignItems:"center",cursor:"grab",zIndex:2}}>
             <div style={{width:40,height:40,borderRadius:"50%",border:`2.5px solid ${isSel?"#fff":c}`,boxShadow:isSel?`0 0 0 2px rgba(255,255,255,0.3),0 0 12px ${c}`:`0 0 6px ${c}55`,overflow:"hidden",background:pl?`${c}22`:"rgba(13,35,64,0.8)",display:"flex",alignItems:"center",justifyContent:"center"}}>
               {pl?.photo
                 ? <img src={pl.photo} style={{width:"100%",height:"100%",objectFit:"cover"}} alt={pl.name} />
@@ -208,9 +244,9 @@ function Pitch({formation,lineup,players,onSlot,selSlot}){
 
 export default function App(){
   const [nav, setNav] = useState("선수");
- const [teams, setTeams] = useState(()=>{ try{ const s=localStorage.getItem("ezra-teams"); return s?JSON.parse(s):INIT_TEAMS; }catch(e){return INIT_TEAMS;} });
-  const [players, setPlayers] = useState(()=>{ try{ const s=localStorage.getItem("ezra-players"); return s?JSON.parse(s):INIT_PLAYERS; }catch(e){return INIT_PLAYERS;} });
-  const [sel, setSel] = useState(()=>{ try{ const s=localStorage.getItem("ezra-players"); return s?JSON.parse(s)[0]:INIT_PLAYERS[0]; }catch(e){return INIT_PLAYERS[0];} });
+  const [teams, setTeams] = useState(INIT_TEAMS);
+  const [players, setPlayers] = useState(INIT_PLAYERS);
+  const [sel, setSel] = useState(INIT_PLAYERS[0]);
   const [dtab, setDtab] = useState("개요");
   const [aCat, setACat] = useState("기술");
   const [editing, setEditing] = useState(false);
@@ -226,6 +262,7 @@ export default function App(){
   const [formation, setFormation] = useState("4-3-3");
   const [lineup, setLineup] = useState(Array(11).fill(null));
   const [selSlot, setSelSlot] = useState(null);
+  const [slotPositions, setSlotPositions] = useState({});
   const [formFilter, setFormFilter] = useState("all");
 
   const photoRef = useRef();
@@ -309,7 +346,8 @@ export default function App(){
     const old=nl.indexOf(pid); if(old!==-1) nl[old]=null;
     nl[selSlot]=pid; setLineup(nl); setSelSlot(null);
   }
-  function clearLineup(){ setLineup(Array(11).fill(null)); setSelSlot(null); }
+  function clearLineup(){ setLineup(Array(11).fill(null)); setSelSlot(null); setSlotPositions({}); }
+  function handleDragEnd(i, pos){ setSlotPositions(prev=>({...prev,[i]:pos})); }
 
   const NAV=["선수","팀 관리","베스트 11"];
   const DTABS=["개요","능력치","성장 추적"];
@@ -322,7 +360,8 @@ export default function App(){
 
       {/* HEADER */}
       <div style={{background:"linear-gradient(90deg,#071525,#0a1e35)",borderBottom:"2px solid #1e3a5f",padding:"9px 18px",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-        <div style={{background:"linear-gradient(135deg,#1e6ba8,#0d3a5f)",borderRadius:6,padding:"3px 12px",fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:17,color:"#fff",letterSpacing:2}}>⚽</div>
+
+        
         <div>
           <div style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700,letterSpacing:2}}>EZRA FOOTBALL MANAGER</div>
           <div style={{fontSize:10,color:"#e0f0ff",fontWeight:700,letterSpacing:0.5}}>에스라 풋볼 매니저 · 선수 능력치 관리</div>
@@ -335,6 +374,7 @@ export default function App(){
           ))}
         </div>
         <span style={{marginLeft:"auto",fontSize:10,color:"#335577"}}>선수 {players.length}명 · 팀 {teams.length}개</span>
+
       </div>
 
       {/* ===== PLAYER VIEW ===== */}
@@ -651,7 +691,7 @@ export default function App(){
                 📌 슬롯 {selSlot+1} ({slots[selSlot]?.p}) — 오른쪽에서 선수를 클릭하세요
               </div>
             )}
-            <Pitch formation={formation} lineup={lineup} players={players} onSlot={handleSlot} selSlot={selSlot} />
+            <Pitch formation={formation} lineup={lineup} players={players} onSlot={handleSlot} selSlot={selSlot} slotPositions={slotPositions} onDragEnd={handleDragEnd} />
             {/* lineup table */}
             <div style={{...cardStyle}}>
               <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:8}}>라인업</div>
