@@ -20,11 +20,32 @@ const RADAR = [
 ];
 
 const FORMATIONS = {
-  "4-3-3":[{p:"GK",x:50,y:87},{p:"RB",x:82,y:70},{p:"CB",x:62,y:73},{p:"CB",x:38,y:73},{p:"LB",x:18,y:70},{p:"CM",x:72,y:50},{p:"CDM",x:50,y:55},{p:"CM",x:28,y:50},{p:"RW",x:80,y:27},{p:"ST",x:50,y:20},{p:"LW",x:20,y:27}],
-  "4-4-2":[{p:"GK",x:50,y:87},{p:"RB",x:82,y:70},{p:"CB",x:62,y:73},{p:"CB",x:38,y:73},{p:"LB",x:18,y:70},{p:"RW",x:80,y:50},{p:"CM",x:60,y:52},{p:"CM",x:40,y:52},{p:"LW",x:20,y:50},{p:"ST",x:63,y:22},{p:"ST",x:37,y:22}],
-  "4-2-3-1":[{p:"GK",x:50,y:87},{p:"RB",x:82,y:70},{p:"CB",x:62,y:73},{p:"CB",x:38,y:73},{p:"LB",x:18,y:70},{p:"CDM",x:63,y:57},{p:"CDM",x:37,y:57},{p:"RW",x:80,y:40},{p:"CAM",x:50,y:38},{p:"LW",x:20,y:40},{p:"ST",x:50,y:18}],
-  "3-5-2":[{p:"GK",x:50,y:87},{p:"CB",x:70,y:72},{p:"CB",x:50,y:74},{p:"CB",x:30,y:72},{p:"RB",x:88,y:52},{p:"CM",x:68,y:50},{p:"CDM",x:50,y:55},{p:"CM",x:32,y:50},{p:"LB",x:12,y:52},{p:"ST",x:63,y:20},{p:"ST",x:37,y:20}],
-  "3-4-3":[{p:"GK",x:50,y:87},{p:"CB",x:70,y:72},{p:"CB",x:50,y:74},{p:"CB",x:30,y:72},{p:"RB",x:85,y:52},{p:"CM",x:62,y:50},{p:"CM",x:38,y:50},{p:"LB",x:15,y:52},{p:"RW",x:78,y:24},{p:"ST",x:50,y:18},{p:"LW",x:22,y:24}],
+  // ── 11 vs 11 ──
+  "11v11 · 4-3-3":[{p:"GK",x:50,y:87},{p:"RB",x:82,y:70},{p:"CB",x:62,y:73},{p:"CB",x:38,y:73},{p:"LB",x:18,y:70},{p:"CM",x:72,y:50},{p:"CDM",x:50,y:55},{p:"CM",x:28,y:50},{p:"RW",x:80,y:27},{p:"ST",x:50,y:20},{p:"LW",x:20,y:27}],
+  "11v11 · 4-4-2":[{p:"GK",x:50,y:87},{p:"RB",x:82,y:70},{p:"CB",x:62,y:73},{p:"CB",x:38,y:73},{p:"LB",x:18,y:70},{p:"RW",x:80,y:50},{p:"CM",x:60,y:52},{p:"CM",x:40,y:52},{p:"LW",x:20,y:50},{p:"ST",x:63,y:22},{p:"ST",x:37,y:22}],
+  "11v11 · 4-2-3-1":[{p:"GK",x:50,y:87},{p:"RB",x:82,y:70},{p:"CB",x:62,y:73},{p:"CB",x:38,y:73},{p:"LB",x:18,y:70},{p:"CDM",x:63,y:57},{p:"CDM",x:37,y:57},{p:"RW",x:80,y:40},{p:"CAM",x:50,y:38},{p:"LW",x:20,y:40},{p:"ST",x:50,y:18}],
+  "11v11 · 3-5-2":[{p:"GK",x:50,y:87},{p:"CB",x:70,y:72},{p:"CB",x:50,y:74},{p:"CB",x:30,y:72},{p:"RB",x:88,y:52},{p:"CM",x:68,y:50},{p:"CDM",x:50,y:55},{p:"CM",x:32,y:50},{p:"LB",x:12,y:52},{p:"ST",x:63,y:20},{p:"ST",x:37,y:20}],
+  "11v11 · 3-4-3":[{p:"GK",x:50,y:87},{p:"CB",x:70,y:72},{p:"CB",x:50,y:74},{p:"CB",x:30,y:72},{p:"RB",x:85,y:52},{p:"CM",x:62,y:50},{p:"CM",x:38,y:50},{p:"LB",x:15,y:52},{p:"RW",x:78,y:24},{p:"ST",x:50,y:18},{p:"LW",x:22,y:24}],
+  // ── 8 vs 8 (총 8명 = GK + 7명) ──
+  "8v8 · 3-3-1":[{p:"GK",x:50,y:87},{p:"CB",x:70,y:72},{p:"CB",x:50,y:75},{p:"CB",x:30,y:72},{p:"CM",x:70,y:50},{p:"CM",x:50,y:52},{p:"CM",x:30,y:50},{p:"ST",x:50,y:22}],
+  "8v8 · 2-3-2":[{p:"GK",x:50,y:87},{p:"CB",x:62,y:72},{p:"CB",x:38,y:72},{p:"RM",x:78,y:52},{p:"CM",x:50,y:54},{p:"LM",x:22,y:52},{p:"ST",x:62,y:22},{p:"ST",x:38,y:22}],
+  "8v8 · 3-2-2":[{p:"GK",x:50,y:87},{p:"CB",x:72,y:72},{p:"CB",x:50,y:74},{p:"CB",x:28,y:72},{p:"CM",x:62,y:50},{p:"CM",x:38,y:50},{p:"RW",x:70,y:24},{p:"LW",x:30,y:24}],
+  "8v8 · 2-4-1":[{p:"GK",x:50,y:87},{p:"CB",x:62,y:72},{p:"CB",x:38,y:72},{p:"RM",x:80,y:50},{p:"CM",x:60,y:52},{p:"CM",x:40,y:52},{p:"LM",x:20,y:50},{p:"ST",x:50,y:22}],
+  "8v8 · 3-1-3":[{p:"GK",x:50,y:87},{p:"CB",x:72,y:72},{p:"CB",x:50,y:74},{p:"CB",x:28,y:72},{p:"CDM",x:50,y:52},{p:"RW",x:76,y:24},{p:"ST",x:50,y:20},{p:"LW",x:24,y:24}],
+};
+
+// 포메이션별 장단점 메모
+const FORMATION_NOTES = {
+  "11v11 · 4-3-3": {강점:"측면 공격력 강함, 압박 수비 용이, 넓은 공격 폭",약점:"측면 수비 부담, 미드필더 체력 소모 큼",추천:"공격적 팀, 압박 수비 선호 팀"},
+  "11v11 · 4-4-2": {강점:"수비 안정성, 균형잡힌 라인업, 클래식한 조직력",약점:"미드필더 수적 열세, 창의성 부족",추천:"수비 안정 우선 팀, 카운터 공격 팀"},
+  "11v11 · 4-2-3-1": {강점:"중원 장악력, 수비 안정성, 유연한 공격 전환",약점:"단독 스트라이커 부담, 측면 공격력 제한",추천:"중원 조직력 우수 팀, 밸런스형 팀"},
+  "11v11 · 3-5-2": {강점:"미드필드 수적 우세, 윙백 활용 넓은 공격",약점:"윙백 체력 부담, 3백 수비 조율 어려움",추천:"윙백 활용도 높은 팀, 중원 지배 원할 때"},
+  "11v11 · 3-4-3": {강점:"강력한 공격력, 높은 라인 유지, 압박 강도 높음",약점:"수비 뒷공간 노출, 3백 실수 시 위험",추천:"공격 지향 팀, 볼 소유율 높은 팀"},
+  "8v8 · 3-3-1": {강점:"수비 안정, 중원 균형, 유소년 표준 포메이션",약점:"공격 옵션 제한, 골 결정력 낮을 수 있음",추천:"기본기 훈련용, 밸런스 학습"},
+  "8v8 · 2-3-2": {강점:"공격력 강화, 2톱으로 다양한 조합 가능",약점:"수비 부담 큼, 뒷공간 노출 위험",추천:"공격적 팀, 골 결정력 좋은 팀"},
+  "8v8 · 3-2-2": {강점:"측면 활용도 높음, 수비 안정",약점:"중원 수적 열세, 세컨볼 획득 어려움",추천:"측면 빠른 선수 보유 팀"},
+  "8v8 · 2-4-1": {강점:"미드필드 지배, 볼 점유 유리",약점:"단독 공격 부담, 수비 뒷공간 위험",추천:"패스 능력 좋은 팀, 볼 소유 지향"},
+  "8v8 · 3-1-3": {강점:"공격 라인 두터움, 압박 강도 높음",약점:"미드필드 얇음, 역습 취약",추천:"강한 압박 축구 지향 팀"},
 };
 
 function rng(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
@@ -169,7 +190,7 @@ function GrowthLine({history}){
   );
 }
 
-function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd}){
+function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd,slotPosOverrides}){
   const slots = FORMATIONS[formation]||[];
   const pitchRef = useRef();
   const dragging = useRef(null);
@@ -227,7 +248,7 @@ function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd}
             <div style={{width:40,height:40,borderRadius:"50%",border:`2.5px solid ${isSel?"#fff":c}`,boxShadow:isSel?`0 0 0 2px rgba(255,255,255,0.3),0 0 12px ${c}`:`0 0 6px ${c}55`,overflow:"hidden",background:pl?`${c}22`:"rgba(13,35,64,0.8)",display:"flex",alignItems:"center",justifyContent:"center"}}>
               {pl?.photo
                 ? <img src={pl.photo} style={{width:"100%",height:"100%",objectFit:"cover"}} alt={pl.name} />
-                : <span style={{fontSize:10,fontWeight:900,color:pl?c:"#3a6a9a",fontFamily:"'Barlow Condensed',sans-serif"}}>{pl?String(v):slot.p}</span>
+                : <span style={{fontSize:10,fontWeight:900,color:pl?c:"#3a6a9a",fontFamily:"'Barlow Condensed',sans-serif"}}>{pl?String(v):(slotPosOverrides&&slotPosOverrides[i])||slot.p}</span>
               }
             </div>
             <div style={{marginTop:2,background:"rgba(3,12,20,0.85)",borderRadius:3,padding:"1px 5px",fontSize:9,fontWeight:700,color:pl?"#e0f0ff":"#4477aa",fontFamily:"'Barlow Condensed',sans-serif",whiteSpace:"nowrap",maxWidth:56,overflow:"hidden",textOverflow:"ellipsis",textAlign:"center"}}>
@@ -259,10 +280,11 @@ export default function App(){
   const [addTeam, setAddTeam] = useState(false);
   const [snapModal, setSnapModal] = useState(false);
   const [snapLabel, setSnapLabel] = useState("");
-  const [formation, setFormation] = useState("4-3-3");
+  const [formation, setFormation] = useState("11v11 · 4-3-3");
   const [lineup, setLineup] = useState(Array(11).fill(null));
   const [selSlot, setSelSlot] = useState(null);
   const [slotPositions, setSlotPositions] = useState({});
+  const [slotPosOverrides, setSlotPosOverrides] = useState({});
   const [formFilter, setFormFilter] = useState("all");
 
   const photoRef = useRef();
@@ -346,7 +368,7 @@ export default function App(){
     const old=nl.indexOf(pid); if(old!==-1) nl[old]=null;
     nl[selSlot]=pid; setLineup(nl); setSelSlot(null);
   }
-  function clearLineup(){ setLineup(Array(11).fill(null)); setSelSlot(null); setSlotPositions({}); }
+  function clearLineup(){ setLineup(Array(FORMATIONS[formation]?.length||11).fill(null)); setSelSlot(null); setSlotPositions({}); setSlotPosOverrides({}); }
   function handleDragEnd(i, pos){ setSlotPositions(prev=>({...prev,[i]:pos})); }
 
   const NAV=["선수","팀 관리","베스트 11"];
@@ -681,31 +703,57 @@ export default function App(){
           <div style={{flex:"0 0 420px",padding:"14px 14px 14px 18px",display:"flex",flexDirection:"column",gap:10,overflowY:"auto"}}>
             <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
               <span style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700,letterSpacing:2}}>🏆 베스트 11</span>
-              <select value={formation} onChange={e=>{setFormation(e.target.value);clearLineup();}} style={{...INPUT,width:"auto",fontSize:12,padding:"5px 10px",flex:1,minWidth:90}}>
+              <select value={formation} onChange={e=>{const f=e.target.value;setFormation(f);setLineup(Array(FORMATIONS[f].length).fill(null));setSelSlot(null);setSlotPositions({});setSlotPosOverrides({});}} style={{...INPUT,width:"auto",fontSize:12,padding:"5px 10px",flex:1,minWidth:90}}>
                 {Object.keys(FORMATIONS).map(f=><option key={f}>{f}</option>)}
               </select>
               <button onClick={clearLineup} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>초기화</button>
             </div>
+            {/* Formation notes */}
+            {FORMATION_NOTES[formation] && (
+              <div style={{background:"#071525",border:"1px solid #0d2340",borderRadius:8,padding:"10px 13px"}}>
+                <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:7}}>📋 포메이션 메모</div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+                    <span style={{fontSize:10,fontWeight:700,color:"#69f0ae",width:32,flexShrink:0}}>강점</span>
+                    <span style={{fontSize:11,color:"#e0f0ff",flex:1}}>{FORMATION_NOTES[formation].강점}</span>
+                  </div>
+                  <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+                    <span style={{fontSize:10,fontWeight:700,color:"#ef5350",width:32,flexShrink:0}}>약점</span>
+                    <span style={{fontSize:11,color:"#e0f0ff",flex:1}}>{FORMATION_NOTES[formation].약점}</span>
+                  </div>
+                  <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+                    <span style={{fontSize:10,fontWeight:700,color:"#ffb84d",width:32,flexShrink:0}}>추천</span>
+                    <span style={{fontSize:11,color:"#8899aa",flex:1}}>{FORMATION_NOTES[formation].추천}</span>
+                  </div>
+                </div>
+              </div>
+            )}
             {selSlot!==null && (
               <div style={{background:"#0d2a1a",border:"1px solid #1e5a30",borderRadius:6,padding:"7px 12px",fontSize:12,color:"#69f0ae",fontWeight:700}}>
                 📌 슬롯 {selSlot+1} ({slots[selSlot]?.p}) — 오른쪽에서 선수를 클릭하세요
               </div>
             )}
-            <Pitch formation={formation} lineup={lineup} players={players} onSlot={handleSlot} selSlot={selSlot} slotPositions={slotPositions} onDragEnd={handleDragEnd} />
+            <Pitch formation={formation} lineup={lineup} players={players} onSlot={handleSlot} selSlot={selSlot} slotPositions={slotPositions} onDragEnd={handleDragEnd} slotPosOverrides={slotPosOverrides} />
             {/* lineup table */}
             <div style={{...cardStyle}}>
               <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:8}}>라인업</div>
               {slots.map((slot,i)=>{
                 const pid=lineup[i], p=players.find(x=>x.id===pid)||null, v=p?ovr(p.attrs):null;
+                const curPos = slotPosOverrides[i] || slot.p;
                 return (
-                  <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:"1px solid #0d2340"}}>
-                    <span style={{width:30,fontSize:10,fontWeight:700,color:"#4477aa",fontFamily:"'Barlow Condensed',sans-serif"}}>{slot.p}</span>
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #0d2340"}}>
+                    {/* Position input */}
+                    <input value={curPos}
+                      onChange={e=>setSlotPosOverrides(prev=>({...prev,[i]:e.target.value.toUpperCase().slice(0,4)}))}
+                      style={{background:"#0d2340",border:"1px solid #1e3a5f",color:"#4499dd",
+                        borderRadius:4,padding:"2px 4px",fontFamily:"'Barlow Condensed',sans-serif",
+                        fontSize:11,fontWeight:700,width:48,flexShrink:0,textAlign:"center",outline:"none"}}/>
                     {p ? (
                       <>
                         <Avatar photo={p.photo} name={p.name} size={22} ovrVal={v} color={getColor(v)} />
-                        <span style={{flex:1,fontSize:12,fontWeight:700,color:"#e0f0ff"}}>{p.name}</span>
-                        <span style={{fontSize:11,fontWeight:700,color:getColor(v)}}>{v}</span>
-                        <button onClick={()=>{const nl=[...lineup];nl[i]=null;setLineup(nl);}} style={{background:"transparent",border:"none",color:"#335577",cursor:"pointer",fontSize:10}}>✕</button>
+                        <span style={{flex:1,fontSize:12,fontWeight:700,color:"#e0f0ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</span>
+                        <span style={{fontSize:11,fontWeight:700,color:getColor(v),flexShrink:0}}>{v}</span>
+                        <button onClick={()=>{const nl=[...lineup];nl[i]=null;setLineup(nl);}} style={{background:"transparent",border:"none",color:"#335577",cursor:"pointer",fontSize:10,flexShrink:0}}>✕</button>
                       </>
                     ) : (
                       <span style={{flex:1,fontSize:11,color:"#335577"}}>미배치</span>
@@ -713,9 +761,9 @@ export default function App(){
                   </div>
                 );
               })}
-              {lineup.filter(Boolean).length===11 && (
+              {lineup.filter(Boolean).length===slots.length && (
                 <div style={{marginTop:9,background:"#0d2a1a",borderRadius:5,padding:"6px 10px",fontSize:11,color:"#69f0ae",fontWeight:700,textAlign:"center"}}>
-                  ✅ 완성! 평균 OVR: {Math.round(lineup.filter(Boolean).map(pid=>ovr(players.find(p=>p.id===pid)?.attrs||{})).reduce((a,b)=>a+b,0)/11)}
+                  ✅ 완성! 평균 OVR: {Math.round(lineup.filter(Boolean).map(pid=>ovr(players.find(p=>p.id===pid)?.attrs||{})).reduce((a,b)=>a+b,0)/slots.length)}
                 </div>
               )}
             </div>
