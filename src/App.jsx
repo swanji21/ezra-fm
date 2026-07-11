@@ -77,6 +77,23 @@ function getColor(v){
   return "#ef5350";
 }
 
+// 피치 좌표계: x/y 0~100, 실제 필드 경계는 x 3~97, y 3~155 (Pitch의 필드 마킹과 일치)
+// y가 작을수록 공격 진영(상단), y가 클수록 골키퍼/수비 진영(하단)
+const PITCH_BOUNDS = {x0:3, x1:97, y0:3, y1:155};
+
+// 18존: 세로 6구역 × 가로 3구역. row 0=최상단(공격)…row 5=최하단(골키퍼 인근)
+function zoneNumber(row, col){
+  const zoneStart = (5-row)*3 + 1;
+  return zoneStart + col;
+}
+
+const CHANNEL_LABELS = ["좌측 윙","좌측 하프스페이스","중앙","우측 하프스페이스","우측 윙"];
+function channelIndex(x){
+  const {x0,x1} = PITCH_BOUNDS;
+  const cw = (x1-x0)/5;
+  return Math.max(0, Math.min(4, Math.floor((x-x0)/cw)));
+}
+
 const TODAY = new Date().toISOString().split("T")[0];
 
 function mkHistory(attrs){
@@ -204,10 +221,11 @@ function GrowthLine({history}){
   );
 }
 
-function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd,slotPosOverrides}){
+function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd,slotPosOverrides,showZones,showChannels}){
   const slots = FORMATIONS[formation]||[];
   const pitchRef = useRef();
   const dragging = useRef(null);
+  const {x0,x1,y0,y1} = PITCH_BOUNDS;
 
   function getPos(e, el){
     const rect = el.getBoundingClientRect();
@@ -248,6 +266,45 @@ function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd,
         <rect x={22} y={3} width={56} height={20} fill="none" stroke="#1e5a30" strokeWidth={0.6} />
         <rect x={22} y={135} width={56} height={20} fill="none" stroke="#1e5a30" strokeWidth={0.6} />
       </svg>
+      {showZones && (
+        <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",zIndex:1}} viewBox="0 0 100 158" preserveAspectRatio="none">
+          {Array.from({length:6}).map((_,row)=>{
+            const rh=(y1-y0)/6, cw=(x1-x0)/3, y=y0+row*rh;
+            return Array.from({length:3}).map((_,col)=>{
+              const x=x0+col*cw;
+              return (
+                <g key={`${row}-${col}`}>
+                  <rect x={x} y={y} width={cw} height={rh} fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth={0.5} strokeDasharray="2 2" />
+                  <text x={x+cw/2} y={y+rh/2} textAnchor="middle" dominantBaseline="middle" fontSize={7} fill="rgba(255,255,255,0.6)" fontFamily="'Oswald',sans-serif" fontWeight={700}>{zoneNumber(row,col)}</text>
+                </g>
+              );
+            });
+          })}
+        </svg>
+      )}
+      {showChannels && (() => {
+        const cw=(x1-x0)/5;
+        const counts=[0,0,0,0,0];
+        slots.forEach((slot,i)=>{
+          if(!lineup[i]) return;
+          const pos=(slotPositions&&slotPositions[i])||slot;
+          counts[channelIndex(pos.x)]++;
+        });
+        return (
+          <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",zIndex:1}} viewBox="0 0 100 158" preserveAspectRatio="none">
+            {CHANNEL_LABELS.map((label,i)=>{
+              const x=x0+i*cw, cx=x+cw/2, cy=y0+(y1-y0)/2;
+              return (
+                <g key={i}>
+                  <rect x={x} y={y0} width={cw} height={y1-y0} fill={i%2===0?"rgba(70,140,220,0.07)":"rgba(70,140,220,0.02)"} stroke="rgba(255,255,255,0.22)" strokeWidth={0.5} />
+                  <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fontSize={5} fill="#cfe8ff" fontFamily="'Barlow Condensed',sans-serif" fontWeight={700} opacity={0.75} transform={`rotate(-90 ${cx} ${cy})`}>{label}</text>
+                  <text x={cx} y={y0+14} textAnchor="middle" fontSize={9} fill="#69f0ae" fontFamily="'Oswald',sans-serif" fontWeight={900}>{counts[i]}명</text>
+                </g>
+              );
+            })}
+          </svg>
+        );
+      })()}
       {slots.map((slot,i)=>{
         const pid=lineup[i], pl=players.find(x=>x.id===pid)||null;
         const v=pl?ovr(pl.attrs):null, isSel=selSlot===i;
@@ -300,6 +357,10 @@ export default function App(){
   const [slotPositions, setSlotPositions] = useState({});
   const [slotPosOverrides, setSlotPosOverrides] = useState({});
   const [formFilter, setFormFilter] = useState("all");
+  const [bench, setBench] = useState([]);
+  const [showBench, setShowBench] = useState(true);
+  const [showZones, setShowZones] = useState(false);
+  const [showChannels, setShowChannels] = useState(false);
 
   const photoRef = useRef();
   const editPhotoRef = useRef();
@@ -468,9 +529,14 @@ export default function App(){
     const nl=[...lineup];
     const old=nl.indexOf(pid); if(old!==-1) nl[old]=null;
     nl[selSlot]=pid; setLineup(nl); setSelSlot(null);
+    setBench(bs=>bs.filter(x=>x!==pid));
   }
   function clearLineup(){ setLineup(Array(FORMATIONS[formation]?.length||11).fill(null)); setSelSlot(null); setSlotPositions({}); setSlotPosOverrides({}); }
   function handleDragEnd(i, pos){ setSlotPositions(prev=>({...prev,[i]:pos})); }
+  function toggleBench(pid){
+    setBench(bs => bs.includes(pid) ? bs.filter(x=>x!==pid) : [...bs, pid]);
+    setLineup(ls => ls.includes(pid) ? ls.map(x=>x===pid?null:x) : ls);
+  }
 
   const NAV=["선수","팀 관리","베스트 11"];
   const DTABS=["개요","능력치","성장 추적"];
@@ -834,6 +900,11 @@ export default function App(){
               </select>
               <button onClick={clearLineup} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>초기화</button>
             </div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              <button onClick={()=>setShowBench(v=>!v)} style={{background:showBench?"#1e6ba8":"transparent",border:showBench?"1px solid #2a8ad4":"1px solid #1e3a5f",color:showBench?"#fff":"#5577aa",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>🪑 벤치 {showBench?"끄기":"켜기"}</button>
+              <button onClick={()=>setShowZones(v=>!v)} style={{background:showZones?"#1e6ba8":"transparent",border:showZones?"1px solid #2a8ad4":"1px solid #1e3a5f",color:showZones?"#fff":"#5577aa",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>🔢 18존 {showZones?"끄기":"켜기"}</button>
+              <button onClick={()=>setShowChannels(v=>!v)} style={{background:showChannels?"#1e6ba8":"transparent",border:showChannels?"1px solid #2a8ad4":"1px solid #1e3a5f",color:showChannels?"#fff":"#5577aa",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>📐 5채널 {showChannels?"끄기":"켜기"}</button>
+            </div>
             {/* Formation notes */}
             {FORMATION_NOTES[formation] && (
               <div style={{background:"#071525",border:"1px solid #0d2340",borderRadius:8,padding:"10px 13px"}}>
@@ -859,7 +930,7 @@ export default function App(){
                 📌 슬롯 {selSlot+1} ({slots[selSlot]?.p}) — 오른쪽에서 선수를 클릭하세요
               </div>
             )}
-            <Pitch formation={formation} lineup={lineup} players={players} onSlot={handleSlot} selSlot={selSlot} slotPositions={slotPositions} onDragEnd={handleDragEnd} slotPosOverrides={slotPosOverrides} />
+            <Pitch formation={formation} lineup={lineup} players={players} onSlot={handleSlot} selSlot={selSlot} slotPositions={slotPositions} onDragEnd={handleDragEnd} slotPosOverrides={slotPosOverrides} showZones={showZones} showChannels={showChannels} />
             {/* lineup table */}
             <div style={{...cardStyle}}>
               <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:8}}>라인업</div>
@@ -893,6 +964,27 @@ export default function App(){
                 </div>
               )}
             </div>
+            {/* bench */}
+            {showBench && (
+              <div style={{...cardStyle}}>
+                <div style={{fontSize:10,color:"#ffb84d",fontWeight:700,letterSpacing:2,marginBottom:8}}>🪑 벤치 ({bench.length}명)</div>
+                {bench.length===0 && <p style={{color:"#335577",fontSize:12}}>오른쪽 선수 목록에서 "벤치+" 버튼으로 후보를 추가하세요</p>}
+                {bench.map(pid=>{
+                  const p=players.find(x=>x.id===pid);
+                  if(!p) return null;
+                  const v=ovr(p.attrs);
+                  return (
+                    <div key={pid} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #0d2340"}}>
+                      <Avatar photo={p.photo} name={p.name} size={22} ovrVal={v} color={getColor(v)} />
+                      <span style={{flex:1,fontSize:12,fontWeight:700,color:"#e0f0ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</span>
+                      <span style={{background:"#0d2340",borderRadius:3,padding:"1px 6px",fontSize:10,fontWeight:700,color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif"}}>{p.pos}</span>
+                      <span style={{fontSize:11,fontWeight:700,color:getColor(v),flexShrink:0}}>{v}</span>
+                      <button onClick={()=>toggleBench(pid)} style={{background:"transparent",border:"none",color:"#335577",cursor:"pointer",fontSize:10,flexShrink:0}}>✕</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* picker */}
@@ -907,10 +999,10 @@ export default function App(){
             </div>
             <div style={{flex:1,overflowY:"auto",padding:"7px 10px"}}>
               {[...formPlayers].sort((a,b)=>ovr(b.attrs)-ovr(a.attrs)).map(p=>{
-                const v=ovr(p.attrs), inL=lineup.includes(p.id);
+                const v=ovr(p.attrs), inL=lineup.includes(p.id), inBench=bench.includes(p.id);
                 return (
                   <div key={p.id} onClick={()=>selSlot!==null?assignSlot(p.id):null}
-                    style={{display:"flex",alignItems:"center",gap:9,background:inL?"#0d2a1a":"#071525",border:inL?"1px solid #1e5a30":"1px solid #0d2340",borderRadius:6,padding:"8px 10px",marginBottom:5,cursor:selSlot!==null?"pointer":"default",opacity:inL&&selSlot===null?0.6:1,transition:"all 0.15s"}}>
+                    style={{display:"flex",alignItems:"center",gap:9,background:inL?"#0d2a1a":inBench?"#241a0a":"#071525",border:inL?"1px solid #1e5a30":inBench?"1px solid #5a3a1a":"1px solid #0d2340",borderRadius:6,padding:"8px 10px",marginBottom:5,cursor:selSlot!==null?"pointer":"default",opacity:inL&&selSlot===null?0.6:1,transition:"all 0.15s"}}>
                     <Avatar photo={p.photo} name={p.name} size={36} ovrVal={v} color={getColor(v)} />
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:700,color:"#e0f0ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
@@ -921,6 +1013,7 @@ export default function App(){
                       <div style={{fontSize:14,fontWeight:900,color:getColor(v),fontFamily:"'Oswald',sans-serif"}}>{v}</div>
                     </div>
                     {inL && <span style={{fontSize:9,color:"#69f0ae",fontWeight:700,flexShrink:0}}>✓</span>}
+                    <button onClick={e=>{e.stopPropagation(); toggleBench(p.id);}} style={{background:"transparent",border:`1px solid ${inBench?"#5a3a1a":"#1e3a5f"}`,color:inBench?"#ffb84d":"#5577aa",borderRadius:4,padding:"3px 7px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,cursor:"pointer",flexShrink:0}}>{inBench?"벤치 제외":"벤치+"}</button>
                   </div>
                 );
               })}
