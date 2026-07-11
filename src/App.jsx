@@ -1,4 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { auth, googleProvider, db } from "./firebase";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LW","RW","ST"];
 
@@ -109,6 +112,17 @@ const INIT_PLAYERS = [
 // ---------- UI atoms ----------
 
 const INPUT = {background:"#0d1b2a",border:"1px solid #1e3a5f",color:"#e0f0ff",borderRadius:4,padding:"5px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,width:"100%",outline:"none"};
+
+function GoogleIcon(){
+  return (
+    <svg width="16" height="16" viewBox="0 0 48 48">
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/>
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.8 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"/>
+      <path fill="#4CAF50" d="M24 44c5.2 0 10-2 13.6-5.2l-6.3-5.3C29.2 35.2 26.7 36 24 36c-5.3 0-9.7-3.4-11.3-8.1l-6.5 5C9.4 39.6 16.1 44 24 44z"/>
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.1 5.8l6.3 5.3C41.4 36.5 44 30.9 44 24c0-1.2-.1-2.4-.4-3.5z"/>
+    </svg>
+  );
+}
 
 function Avatar({photo,name,size,color,ovrVal}){
   const c = color || getColor(ovrVal||60);
@@ -290,21 +304,79 @@ export default function App(){
   const photoRef = useRef();
   const editPhotoRef = useRef();
 
-  // 데이터 저장/불러오기
-  useEffect(() => {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [cloudReady, setCloudReady] = useState(false);
+
+  function loadLocalData(){
     const sp = localStorage.getItem("ezra-players");
     const st = localStorage.getItem("ezra-teams");
-    if(sp){ const p=JSON.parse(sp); setPlayers(p); setSel(p[0]||null); }
-    if(st){ setTeams(JSON.parse(st)); }
+    const p = sp ? JSON.parse(sp) : INIT_PLAYERS;
+    const t = st ? JSON.parse(st) : INIT_TEAMS;
+    setPlayers(p); setSel(p[0]||null); setTeams(t);
+  }
+
+  // 로그인 상태 감지
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, u => { setUser(u); setAuthLoading(false); });
+    return unsub;
   }, []);
 
+  // 로그아웃 상태: 이 기기(localStorage)의 데이터를 불러옴
   useEffect(() => {
+    if(!user){ setCloudReady(false); loadLocalData(); }
+  }, [user]);
+
+  // 로그인 상태: Firebase에 저장된 데이터를 불러오고, 없으면 현재 데이터를 업로드
+  useEffect(() => {
+    if(!user) return;
+    let cancelled = false;
+    setCloudReady(false);
+    (async () => {
+      try {
+        const ref = doc(db, "users", user.uid);
+        const snap = await getDoc(ref);
+        if(cancelled) return;
+        if(snap.exists()){
+          const data = snap.data();
+          const p = data.players || [];
+          setPlayers(p); setSel(p[0]||null);
+          setTeams(data.teams || []);
+        } else {
+          await setDoc(ref, { players, teams, updatedAt: Date.now() });
+        }
+      } catch(e){
+        console.error("클라우드 데이터 로드 실패", e);
+      } finally {
+        if(!cancelled) setCloudReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  // 로그아웃 상태: 이 기기에만 저장
+  useEffect(() => {
+    if(user) return;
     localStorage.setItem("ezra-players", JSON.stringify(players));
-  }, [players]);
+  }, [players, user]);
 
   useEffect(() => {
+    if(user) return;
     localStorage.setItem("ezra-teams", JSON.stringify(teams));
-  }, [teams]);
+  }, [teams, user]);
+
+  // 로그인 상태: Firebase에 저장
+  useEffect(() => {
+    if(!user || !cloudReady) return;
+    setDoc(doc(db, "users", user.uid), { players, teams, updatedAt: Date.now() }, { merge: true })
+      .catch(e => console.error("클라우드 저장 실패", e));
+  }, [players, teams, user, cloudReady]);
+
+  async function handleLogin(){
+    try { await signInWithPopup(auth, googleProvider); }
+    catch(e){ console.error(e); alert("로그인 실패: " + e.message); }
+  }
+  function handleLogout(){ signOut(auth); }
 
   const teamMap = useMemo(()=>Object.fromEntries(teams.map(t=>[t.id,t])),[teams]);
   const display = editing ? editD : sel;
@@ -396,6 +468,24 @@ export default function App(){
           ))}
         </div>
         <span style={{marginLeft:"auto",fontSize:10,color:"#335577"}}>선수 {players.length}명 · 팀 {teams.length}개</span>
+
+        {!authLoading && (user ? (
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              {user.photoURL
+                ? <img src={user.photoURL} alt={user.displayName||"user"} referrerPolicy="no-referrer" style={{width:22,height:22,borderRadius:"50%"}} />
+                : <div style={{width:22,height:22,borderRadius:"50%",background:"#1e3a5f"}} />
+              }
+              <span style={{fontSize:11,color:"#8899aa",maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.displayName||user.email}</span>
+            </div>
+            <span style={{fontSize:9,color:cloudReady?"#69f0ae":"#ffb84d"}}>{cloudReady?"☁ 동기화됨":"⏳ 동기화 중…"}</span>
+            <button onClick={handleLogout} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"5px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>로그아웃</button>
+          </div>
+        ) : (
+          <button onClick={handleLogin} style={{display:"flex",alignItems:"center",gap:6,background:"#fff",border:"1px solid #ccc",color:"#333",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+            <GoogleIcon /> Google로 로그인
+          </button>
+        ))}
 
       </div>
 
