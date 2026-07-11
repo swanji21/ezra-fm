@@ -314,7 +314,7 @@ function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd,
   });
 
   return (
-    <div ref={pitchRef} style={{position:"relative",width:"100%",maxWidth:360,aspectRatio:"0.63",background:"#0a2010",borderRadius:10,overflow:"hidden",border:"2px solid #1a4020",margin:"0 auto",userSelect:"none",touchAction:"none"}}>
+    <div ref={pitchRef} style={{position:"relative",width:"100%",maxWidth:360,aspectRatio:"0.63",flexShrink:0,background:"#0a2010",borderRadius:10,overflow:"hidden",border:"2px solid #1a4020",margin:"0 auto",userSelect:"none",touchAction:"none"}}>
       <svg style={{position:"absolute",inset:0,width:"100%",height:"100%"}} viewBox="0 0 100 158" preserveAspectRatio="none">
         {[0,1,2,3,4,5,6].map(i=><rect key={i} x={0} y={i*23} width={100} height={11.5} fill={i%2===0?"#0a2010":"#0c2412"} />)}
         <rect x={3} y={3} width={94} height={152} fill="none" stroke="#1e5a30" strokeWidth={0.8} />
