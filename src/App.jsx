@@ -51,6 +51,41 @@ const FORMATION_NOTES = {
   "8v8 · 3-1-3": {강점:"공격 라인 두터움, 압박 강도 높음",약점:"미드필드 얇음, 역습 취약",추천:"강한 압박 축구 지향 팀"},
 };
 
+// 포메이션 라인 연결용 포지션 그룹 (수비 / 미드필더 / 공격수)
+const POSITION_GROUPS = [
+  {key:"def", positions:["GK","CB","LB","RB"], color:"#4499dd"},
+  {key:"mid", positions:["CDM","CM","CAM","LM","RM"], color:"#ffd54f"},
+  {key:"att", positions:["LW","RW","ST"], color:"#ff7043"},
+];
+
+// 선수 목록 "포지션별 보기"용 그룹
+const PLAYER_GROUPS = [
+  {key:"GK", label:"GK", positions:["GK"]},
+  {key:"DF", label:"DF", positions:["CB","LB","RB"]},
+  {key:"MF", label:"MF", positions:["CDM","CM","CAM"]},
+  {key:"FW", label:"FW", positions:["LW","RW","ST"]},
+];
+
+// 피치 위 드래그 좌표(x,y 0~100, y가 작을수록 공격 진영)로 전술 포지션을 자동 판정
+function classifyPosition(x,y){
+  if(y>=80) return "GK";
+  if(y>=62){
+    if(x<35) return "LB";
+    if(x>65) return "RB";
+    return "CB";
+  }
+  if(y>=34){
+    if(x<35) return "LM";
+    if(x>65) return "RM";
+    if(y>=54) return "CDM";
+    if(y<44) return "CAM";
+    return "CM";
+  }
+  if(x<35) return "LW";
+  if(x>65) return "RW";
+  return "ST";
+}
+
 function rng(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
 
 function mkAttrs(bias){
@@ -107,9 +142,9 @@ function mkHistory(attrs){
   return h;
 }
 
-function mkPlayer(id,name,pos,age,club,val,tid,bias){
+function mkPlayer(id,name,pos,age,club,tid,meta,bias){
   const attrs = mkAttrs(bias);
-  return {id,name,pos,age,club,val,tid,photo:null,attrs,history:mkHistory(attrs)};
+  return {id,name,pos,age,club,tid,number:meta.number,heightCm:meta.heightCm,weightKg:meta.weightKg,size:meta.size,photo:null,attrs,history:mkHistory(attrs)};
 }
 
 const INIT_TEAMS = [
@@ -118,12 +153,12 @@ const INIT_TEAMS = [
 ];
 
 const INIT_PLAYERS = [
-  mkPlayer(1,"손흥민","LW",32,"토트넘","€65M","t1",{pace:89,finishing:87,dribbling:86,vision:84}),
-  mkPlayer(2,"이강인","CAM",23,"PSG","€45M","t1",{passing:85,technique:88,dribbling:84,vision:83}),
-  mkPlayer(3,"김민재","CB",27,"바이에른","€70M","t2",{strength:90,jumping:88,decisions:85,heading:87}),
-  mkPlayer(4,"황희찬","RW",28,"울버햄튼","€30M","t2",{pace:87,stamina:85,workRate:88,finishing:79}),
-  mkPlayer(5,"조현우","GK",33,"울산","€8M","t1",{decisions:84,composure:83,jumping:79}),
-  mkPlayer(6,"정우영","ST",28,"프라이부르크","€18M","t2",{finishing:80,strength:78,pace:82}),
+  mkPlayer(1,"손흥민","LW",32,"토트넘","t1",{number:7,heightCm:183,weightKg:77,size:"L"},{pace:89,finishing:87,dribbling:86,vision:84}),
+  mkPlayer(2,"이강인","CAM",23,"PSG","t1",{number:19,heightCm:173,weightKg:65,size:"M"},{passing:85,technique:88,dribbling:84,vision:83}),
+  mkPlayer(3,"김민재","CB",27,"바이에른","t2",{number:3,heightCm:190,weightKg:88,size:"XL"},{strength:90,jumping:88,decisions:85,heading:87}),
+  mkPlayer(4,"황희찬","RW",28,"울버햄튼","t2",{number:11,heightCm:177,weightKg:72,size:"M"},{pace:87,stamina:85,workRate:88,finishing:79}),
+  mkPlayer(5,"조현우","GK",33,"울산","t1",{number:1,heightCm:189,weightKg:84,size:"XL"},{decisions:84,composure:83,jumping:79}),
+  mkPlayer(6,"정우영","ST",28,"프라이부르크","t2",{number:9,heightCm:187,weightKg:80,size:"L"},{finishing:80,strength:78,pace:82}),
 ];
 
 // ---------- UI atoms ----------
@@ -141,14 +176,21 @@ function GoogleIcon(){
   );
 }
 
-function Avatar({photo,name,size,color,ovrVal}){
+function Avatar({photo,name,size,color,ovrVal,mode,number,pos}){
   const c = color || getColor(ovrVal||60);
   const sz = size||48;
+  const numberMode = mode==="number";
+  const positionMode = mode==="position";
   return (
     <div style={{width:sz,height:sz,borderRadius:"50%",flexShrink:0,border:`2px solid ${c}`,overflow:"hidden",background:`${c}18`,display:"flex",alignItems:"center",justifyContent:"center"}}>
-      {photo
-        ? <img src={photo} alt={name} style={{width:"100%",height:"100%",objectFit:"cover"}} />
-        : <span style={{fontSize:sz*0.34,fontWeight:900,color:c,fontFamily:"'Oswald',sans-serif"}}>{ovrVal||"?"}</span>
+      {numberMode
+        ? <span style={{fontSize:sz*0.44,fontWeight:900,color:c,fontFamily:"'Oswald',sans-serif"}}>{(number!==undefined&&number!==null&&number!=="")?number:"-"}</span>
+        : positionMode
+        ? <span style={{fontSize:sz*0.28,fontWeight:900,color:c,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:0.5}}>{pos||"-"}</span>
+        : (photo
+          ? <img src={photo} alt={name} style={{width:"100%",height:"100%",objectFit:"cover"}} />
+          : <span style={{fontSize:sz*0.34,fontWeight:900,color:c,fontFamily:"'Oswald',sans-serif"}}>{ovrVal||"?"}</span>
+        )
       }
     </div>
   );
@@ -221,7 +263,7 @@ function GrowthLine({history}){
   );
 }
 
-function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd,slotPosOverrides,showZones,showChannels}){
+function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd,slotPosOverrides,showZones,showChannels,cardMode}){
   const slots = FORMATIONS[formation]||[];
   const pitchRef = useRef();
   const dragging = useRef(null);
@@ -241,6 +283,7 @@ function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd,
     dragging.current = i;
     const move = ev => {
       if(dragging.current===null) return;
+      if(ev.cancelable) ev.preventDefault();
       const pos = getPos(ev, pitchRef.current);
       onDragEnd(dragging.current, pos);
     };
@@ -256,8 +299,22 @@ function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd,
     window.addEventListener('touchmove', move, {passive:false});
     window.addEventListener('touchend', up);
   }
+
+  // 그룹별(수비/미드필더/공격수) 라인업 좌표 — x 순서로 이어서 포메이션 라인을 그린다
+  const groupLines = POSITION_GROUPS.map(g=>{
+    const pts = slots
+      .map((slot,i)=>{
+        if(!g.positions.includes(slot.p) || !lineup[i]) return null;
+        const pos = (slotPositions&&slotPositions[i]) || slot;
+        return {x:pos.x, y:pos.y};
+      })
+      .filter(Boolean)
+      .sort((a,b)=>a.x-b.x);
+    return {...g, pts};
+  });
+
   return (
-    <div ref={pitchRef} style={{position:"relative",width:"100%",maxWidth:360,aspectRatio:"0.63",background:"#0a2010",borderRadius:10,overflow:"hidden",border:"2px solid #1a4020",margin:"0 auto",userSelect:"none"}}>
+    <div ref={pitchRef} style={{position:"relative",width:"100%",maxWidth:360,aspectRatio:"0.63",background:"#0a2010",borderRadius:10,overflow:"hidden",border:"2px solid #1a4020",margin:"0 auto",userSelect:"none",touchAction:"none"}}>
       <svg style={{position:"absolute",inset:0,width:"100%",height:"100%"}} viewBox="0 0 100 158" preserveAspectRatio="none">
         {[0,1,2,3,4,5,6].map(i=><rect key={i} x={0} y={i*23} width={100} height={11.5} fill={i%2===0?"#0a2010":"#0c2412"} />)}
         <rect x={3} y={3} width={94} height={152} fill="none" stroke="#1e5a30" strokeWidth={0.8} />
@@ -305,25 +362,38 @@ function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd,
           </svg>
         );
       })()}
+      <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",zIndex:1,pointerEvents:"none"}} viewBox="0 0 100 100" preserveAspectRatio="none">
+        {groupLines.map(g=> g.pts.length<2 ? null : (
+          <polyline key={g.key} points={g.pts.map(p=>`${p.x},${p.y}`).join(" ")} fill="none" stroke={g.color} strokeWidth={0.8} opacity={0.6} strokeLinecap="round" strokeLinejoin="round" />
+        ))}
+      </svg>
       {slots.map((slot,i)=>{
         const pid=lineup[i], pl=players.find(x=>x.id===pid)||null;
         const v=pl?ovr(pl.attrs):null, isSel=selSlot===i;
         const c=v?getColor(v):"#2a4a6a";
         const pos = (slotPositions&&slotPositions[i]) || slot;
+        const curPos = (slotPosOverrides&&slotPosOverrides[i]) || slot.p;
+        const numberMode = cardMode==="number";
+        const positionMode = cardMode==="position";
         return (
           <div key={i}
             onMouseDown={e=>onMouseDown(e,i)}
             onTouchStart={e=>onMouseDown(e,i)}
             onClick={()=>onSlot(i)}
-            style={{position:"absolute",left:`${pos.x}%`,top:`${pos.y}%`,transform:"translate(-50%,-50%)",display:"flex",flexDirection:"column",alignItems:"center",cursor:"grab",zIndex:2}}>
+            style={{position:"absolute",left:`${pos.x}%`,top:`${pos.y}%`,transform:"translate(-50%,-50%)",display:"flex",flexDirection:"column",alignItems:"center",cursor:"grab",zIndex:2,touchAction:"none"}}>
             <div style={{width:40,height:40,borderRadius:"50%",border:`2.5px solid ${isSel?"#fff":c}`,boxShadow:isSel?`0 0 0 2px rgba(255,255,255,0.3),0 0 12px ${c}`:`0 0 6px ${c}55`,overflow:"hidden",background:pl?`${c}22`:"rgba(13,35,64,0.8)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-              {pl?.photo
-                ? <img src={pl.photo} style={{width:"100%",height:"100%",objectFit:"cover"}} alt={pl.name} />
-                : <span style={{fontSize:10,fontWeight:900,color:pl?c:"#3a6a9a",fontFamily:"'Barlow Condensed',sans-serif"}}>{pl?String(v):(slotPosOverrides&&slotPosOverrides[i])||slot.p}</span>
+              {pl && numberMode
+                ? <span style={{fontSize:14,fontWeight:900,color:c,fontFamily:"'Oswald',sans-serif"}}>{(pl.number!==undefined&&pl.number!==null&&pl.number!=="")?pl.number:"-"}</span>
+                : pl && positionMode
+                ? <span style={{fontSize:11,fontWeight:900,color:c,fontFamily:"'Barlow Condensed',sans-serif"}}>{curPos}</span>
+                : (pl?.photo
+                  ? <img src={pl.photo} style={{width:"100%",height:"100%",objectFit:"cover"}} alt={pl.name} />
+                  : <span style={{fontSize:10,fontWeight:900,color:pl?c:"#3a6a9a",fontFamily:"'Barlow Condensed',sans-serif"}}>{pl?String(v):curPos}</span>
+                )
               }
             </div>
             <div style={{marginTop:2,background:"rgba(3,12,20,0.85)",borderRadius:3,padding:"1px 5px",fontSize:9,fontWeight:700,color:pl?"#e0f0ff":"#4477aa",fontFamily:"'Barlow Condensed',sans-serif",whiteSpace:"nowrap",maxWidth:56,overflow:"hidden",textOverflow:"ellipsis",textAlign:"center"}}>
-              {pl?pl.name:slot.p}
+              {pl?pl.name:curPos}
             </div>
           </div>
         );
@@ -362,6 +432,13 @@ export default function App(){
   const [showZones, setShowZones] = useState(false);
   const [showChannels, setShowChannels] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarViewMode, setSidebarViewMode] = useState("all"); // "all" | "position"
+  const [cardMode, setCardMode] = useState("stats"); // "stats" | "number" | "position"
+
+  const [matches, setMatches] = useState([]);
+  const [activeMatchId, setActiveMatchId] = useState(null);
+  const [addingMatch, setAddingMatch] = useState(false);
+  const [newMatch, setNewMatch] = useState({date:TODAY, opponent:"", homeAway:"home", competition:""});
 
   const photoRef = useRef();
   const editPhotoRef = useRef();
@@ -370,15 +447,17 @@ export default function App(){
   const [authLoading, setAuthLoading] = useState(true);
   const [cloudReady, setCloudReady] = useState(false);
   const [cloudError, setCloudError] = useState(null);
-  const [conflict, setConflict] = useState(null); // { players, teams } from cloud, when it differs from this device's data
+  const [conflict, setConflict] = useState(null); // { players, teams, matches } from cloud, when it differs from this device's data
   const [retryTick, setRetryTick] = useState(0);
 
   function loadLocalData(){
     const sp = localStorage.getItem("ezra-players");
     const st = localStorage.getItem("ezra-teams");
+    const sm = localStorage.getItem("ezra-matches");
     const p = sp ? JSON.parse(sp) : INIT_PLAYERS;
     const t = st ? JSON.parse(st) : INIT_TEAMS;
-    setPlayers(p); setSel(p[0]||null); setTeams(t);
+    const m = sm ? JSON.parse(sm) : [];
+    setPlayers(p); setSel(p[0]||null); setTeams(t); setMatches(m);
   }
 
   // 로그인 상태 감지
@@ -409,15 +488,16 @@ export default function App(){
           const data = snap.data();
           const cloudPlayers = data.players || [];
           const cloudTeams = data.teams || [];
-          const same = JSON.stringify(cloudPlayers)===JSON.stringify(players) && JSON.stringify(cloudTeams)===JSON.stringify(teams);
+          const cloudMatches = data.matches || [];
+          const same = JSON.stringify(cloudPlayers)===JSON.stringify(players) && JSON.stringify(cloudTeams)===JSON.stringify(teams) && JSON.stringify(cloudMatches)===JSON.stringify(matches);
           if(same){
-            setPlayers(cloudPlayers); setSel(cloudPlayers[0]||null); setTeams(cloudTeams);
+            setPlayers(cloudPlayers); setSel(cloudPlayers[0]||null); setTeams(cloudTeams); setMatches(cloudMatches);
             setCloudReady(true);
           } else {
-            setConflict({players:cloudPlayers, teams:cloudTeams});
+            setConflict({players:cloudPlayers, teams:cloudTeams, matches:cloudMatches});
           }
         } else {
-          await setDoc(ref, { players, teams, updatedAt: Date.now() });
+          await setDoc(ref, { players, teams, matches, updatedAt: Date.now() });
           setCloudReady(true);
         }
       } catch(e){
@@ -439,12 +519,17 @@ export default function App(){
     localStorage.setItem("ezra-teams", JSON.stringify(teams));
   }, [teams, user]);
 
+  useEffect(() => {
+    if(user) return;
+    localStorage.setItem("ezra-matches", JSON.stringify(matches));
+  }, [matches, user]);
+
   // 로그인 상태: Firebase에 저장 (충돌 해결 전이거나 에러 상태면 저장하지 않음)
   useEffect(() => {
     if(!user || !cloudReady || conflict) return;
-    setDoc(doc(db, "users", user.uid), { players, teams, updatedAt: Date.now() }, { merge: true })
+    setDoc(doc(db, "users", user.uid), { players, teams, matches, updatedAt: Date.now() }, { merge: true })
       .catch(e => { console.error("클라우드 저장 실패", e); setCloudError(e.code || e.message || String(e)); });
-  }, [players, teams, user, cloudReady, conflict]);
+  }, [players, teams, matches, user, cloudReady, conflict]);
 
   async function handleLogin(){
     try { await signInWithPopup(auth, googleProvider); }
@@ -459,12 +544,12 @@ export default function App(){
 
   function resolveKeepCloud(){
     if(!conflict) return;
-    setPlayers(conflict.players); setSel(conflict.players[0]||null); setTeams(conflict.teams);
+    setPlayers(conflict.players); setSel(conflict.players[0]||null); setTeams(conflict.teams); setMatches(conflict.matches||[]);
     setConflict(null); setCloudReady(true); setCloudError(null);
   }
   function resolveKeepLocal(){
     if(!user || !conflict) return;
-    setDoc(doc(db, "users", user.uid), { players, teams, updatedAt: Date.now() })
+    setDoc(doc(db, "users", user.uid), { players, teams, matches, updatedAt: Date.now() })
       .then(() => { setConflict(null); setCloudReady(true); setCloudError(null); })
       .catch(e => { console.error("클라우드 저장 실패", e); setCloudError(e.code || e.message || String(e)); });
   }
@@ -483,6 +568,8 @@ export default function App(){
 
   const slots = FORMATIONS[formation]||[];
   const formPlayers = formFilter==="all" ? players : players.filter(p=>p.tid===formFilter||(formFilter==="none"&&!p.tid));
+  const activeMatch = activeMatchId ? matches.find(m=>m.id===activeMatchId)||null : null;
+  const sortedMatches = useMemo(()=>[...matches].sort((a,b)=>a.date.localeCompare(b.date)),[matches]);
 
   function loadPhoto(file,target){
     if(!file) return;
@@ -500,7 +587,7 @@ export default function App(){
   function delPlayer(){ const r=players.filter(p=>p.id!==sel.id); setPlayers(r); setSel(r[0]||null); }
 
   function startAdd(){
-    setNewP({id:Date.now(),name:"",pos:"ST",age:20,club:"",val:"€10M",tid:teams[0]?.id||"",photo:null,attrs:Object.fromEntries(ALL_ATTR_KEYS.map(k=>[k,65])),history:[]});
+    setNewP({id:Date.now(),name:"",pos:"ST",age:20,club:"",number:"",heightCm:"",weightKg:"",size:"",tid:teams[0]?.id||"",photo:null,attrs:Object.fromEntries(ALL_ATTR_KEYS.map(k=>[k,65])),history:[]});
     setAdding(true);
   }
   function saveNew(){
@@ -533,16 +620,84 @@ export default function App(){
     setBench(bs=>bs.filter(x=>x!==pid));
   }
   function clearLineup(){ setLineup(Array(FORMATIONS[formation]?.length||11).fill(null)); setSelSlot(null); setSlotPositions({}); setSlotPosOverrides({}); }
-  function handleDragEnd(i, pos){ setSlotPositions(prev=>({...prev,[i]:pos})); }
+  function handleDragEnd(i, pos){
+    setSlotPositions(prev=>({...prev,[i]:pos}));
+    setSlotPosOverrides(prev=>({...prev,[i]:classifyPosition(pos.x,pos.y)}));
+  }
   function toggleBench(pid){
     setBench(bs => bs.includes(pid) ? bs.filter(x=>x!==pid) : [...bs, pid]);
     setLineup(ls => ls.includes(pid) ? ls.map(x=>x===pid?null:x) : ls);
   }
 
-  const NAV=["선수","팀 관리","베스트 11"];
+  function startAddMatch(){
+    setNewMatch({date:TODAY, opponent:"", homeAway:"home", competition:""});
+    setAddingMatch(true);
+  }
+  function saveNewMatch(){
+    if(!newMatch.opponent.trim()) return;
+    const defaultFormation = "11v11 · 4-3-3";
+    const m = {
+      id:"m"+Date.now(), date:newMatch.date||TODAY, opponent:newMatch.opponent.trim(),
+      homeAway:newMatch.homeAway, competition:newMatch.competition.trim(),
+      formation:defaultFormation, lineup:Array(FORMATIONS[defaultFormation].length).fill(null),
+      slotPositions:{}, slotPosOverrides:{}, bench:[],
+    };
+    setMatches(ms=>[...ms,m]);
+    setAddingMatch(false);
+  }
+  function delMatch(mid){
+    setMatches(ms=>ms.filter(m=>m.id!==mid));
+    if(activeMatchId===mid) setActiveMatchId(null);
+  }
+  function openMatch(m){
+    const f = m.formation||"11v11 · 4-3-3";
+    setFormation(f);
+    setLineup(m.lineup&&m.lineup.length ? [...m.lineup] : Array(FORMATIONS[f].length).fill(null));
+    setSlotPositions(m.slotPositions||{});
+    setSlotPosOverrides(m.slotPosOverrides||{});
+    setBench(m.bench||[]);
+    setSelSlot(null);
+    setActiveMatchId(m.id);
+    setNav("베스트 11");
+  }
+  function saveMatchLineup(){
+    if(!activeMatchId) return;
+    setMatches(ms=>ms.map(m=>m.id===activeMatchId
+      ? {...m, formation, lineup:[...lineup], slotPositions:{...slotPositions}, slotPosOverrides:{...slotPosOverrides}, bench:[...bench]}
+      : m));
+  }
+  function exitMatchEdit(){ setActiveMatchId(null); }
+  function matchAvgOvr(m){
+    const filled = (m.lineup||[]).filter(Boolean);
+    if(!filled.length) return null;
+    return Math.round(filled.map(pid=>ovr(players.find(p=>p.id===pid)?.attrs||{})).reduce((a,b)=>a+b,0)/filled.length);
+  }
+  function formationShort(f){
+    if(!f) return "-";
+    const parts = f.split("·");
+    return parts.length>1 ? parts[1].trim() : f;
+  }
+
+  const NAV=["선수","팀 관리","베스트 11","경기 일정"];
   const DTABS=["개요","능력치","성장 추적"];
 
   const cardStyle = {background:"#071525",border:"1px solid #0d2340",borderRadius:8,padding:"12px 15px"};
+
+  function renderPlayerRow(p){
+    const v=ovr(p.attrs), isSel=sel?.id===p.id;
+    const tc=p.tid?teamMap[p.tid]?.color:"#1e6ba8";
+    return (
+      <div key={p.id} onClick={()=>{setSel(p);setEditing(false);setEditD(null);setDtab("개요");}}
+        style={{background:isSel?"#0d2340":"#071525",border:isSel?`1px solid ${tc}`:"1px solid #0d2340",borderLeft:isSel?`3px solid ${tc}`:"3px solid transparent",borderRadius:6,padding:"9px 11px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,marginBottom:5,transition:"all 0.15s"}}>
+        <Avatar photo={p.photo} name={p.name} size={36} ovrVal={v} color={getColor(v)} mode={cardMode} number={p.number} pos={p.pos} />
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:13,color:"#e0f0ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
+          <div style={{fontSize:10,color:"#5577aa"}}>{p.club}</div>
+        </div>
+        <div style={{background:"#0d2340",borderRadius:3,padding:"2px 6px",fontSize:11,fontWeight:700,color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif",flexShrink:0}}>{p.pos}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell" style={{background:"#030c14",fontFamily:"'Barlow Condensed',sans-serif",color:"#e0f0ff",display:"flex",flexDirection:"column"}}>
@@ -558,8 +713,9 @@ export default function App(){
           .app-header{flex-wrap:wrap;row-gap:8px;padding:8px 12px !important;}
           .app-title-main{font-size:13px !important;}
           .nav-row{order:2;}
-          .auth-controls{margin-left:0 !important;order:3;width:100%;justify-content:flex-end;flex-wrap:wrap;row-gap:6px;}
-          .player-count-label{order:4;width:100%;}
+          .card-mode-toggle{order:3;}
+          .auth-controls{margin-left:0 !important;order:4;width:100%;justify-content:flex-end;flex-wrap:wrap;row-gap:6px;}
+          .player-count-label{order:5;width:100%;}
 
           .sidebar-toggle-btn{display:flex !important;}
           .player-layout{flex-direction:column !important;height:auto !important;overflow:visible !important;}
@@ -591,10 +747,24 @@ export default function App(){
         </div>
         <div className="nav-row" style={{display:"flex",gap:3,marginLeft:16,flexWrap:"wrap"}}>
           {NAV.map(n=>(
-            <button key={n} onClick={()=>setNav(n)} style={{background:nav===n?"#1e6ba8":"transparent",border:nav===n?"1px solid #2a8ad4":"1px solid #1e3a5f",color:nav===n?"#fff":"#5577aa",borderRadius:5,padding:"5px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>
-              {n==="베스트 11"?"🏆 "+n:n}
+            <button key={n} onClick={()=>{
+              if(n==="베스트 11" && nav!=="베스트 11" && activeMatchId!==null){
+                // 경기에 연결되지 않은 프리스타일 상태로 진입 (이전 경기 편집 잔여 데이터를 남기지 않음)
+                setActiveMatchId(null);
+                setFormation("11v11 · 4-3-3");
+                setLineup(Array(FORMATIONS["11v11 · 4-3-3"].length).fill(null));
+                setSlotPositions({}); setSlotPosOverrides({}); setBench([]); setSelSlot(null);
+              }
+              setNav(n);
+            }} style={{background:nav===n?"#1e6ba8":"transparent",border:nav===n?"1px solid #2a8ad4":"1px solid #1e3a5f",color:nav===n?"#fff":"#5577aa",borderRadius:5,padding:"5px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+              {n==="베스트 11"?"🏆 "+n:n==="경기 일정"?"📅 "+n:n}
             </button>
           ))}
+        </div>
+        <div className="card-mode-toggle" style={{display:"flex",gap:2,background:"#0d1b2a",border:"1px solid #1e3a5f",borderRadius:5,padding:2}}>
+          <button onClick={()=>setCardMode("stats")} style={{background:cardMode==="stats"?"#1e6ba8":"transparent",border:"none",color:cardMode==="stats"?"#fff":"#5577aa",borderRadius:4,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>능력치</button>
+          <button onClick={()=>setCardMode("number")} style={{background:cardMode==="number"?"#1e6ba8":"transparent",border:"none",color:cardMode==="number"?"#fff":"#5577aa",borderRadius:4,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>등번호</button>
+          <button onClick={()=>setCardMode("position")} style={{background:cardMode==="position"?"#1e6ba8":"transparent",border:"none",color:cardMode==="position"?"#fff":"#5577aa",borderRadius:4,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>포지션</button>
         </div>
         <span className="player-count-label" style={{marginLeft:"auto",fontSize:10,color:"#335577"}}>선수 {players.length}명 · 팀 {teams.length}개</span>
 
@@ -640,24 +810,32 @@ export default function App(){
                 {teams.map(t=><option key={t.id} value={t.id}>{t.badge} {t.name}</option>)}
                 <option value="none">팀 없음</option>
               </select>
+              <div style={{display:"flex",gap:2,background:"#0d1b2a",border:"1px solid #1e3a5f",borderRadius:5,padding:2}}>
+                <button onClick={()=>setSidebarViewMode("all")} style={{flex:1,background:sidebarViewMode==="all"?"#1e6ba8":"transparent",border:"none",color:sidebarViewMode==="all"?"#fff":"#5577aa",borderRadius:4,padding:"4px 6px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,cursor:"pointer"}}>전체 보기</button>
+                <button onClick={()=>setSidebarViewMode("position")} style={{flex:1,background:sidebarViewMode==="position"?"#1e6ba8":"transparent",border:"none",color:sidebarViewMode==="position"?"#fff":"#5577aa",borderRadius:4,padding:"4px 6px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,cursor:"pointer"}}>포지션별 보기</button>
+              </div>
             </div>
             <div style={{flex:1,overflowY:"auto",padding:"7px 9px"}}>
-              {filtered.map(p=>{
-                const v=ovr(p.attrs), isSel=sel?.id===p.id;
-                const tc=p.tid?teamMap[p.tid]?.color:"#1e6ba8";
-                return (
-                  <div key={p.id} onClick={()=>{setSel(p);setEditing(false);setEditD(null);setDtab("개요");}}
-                    style={{background:isSel?"#0d2340":"#071525",border:isSel?`1px solid ${tc}`:"1px solid #0d2340",borderLeft:isSel?`3px solid ${tc}`:"3px solid transparent",borderRadius:6,padding:"9px 11px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,marginBottom:5,transition:"all 0.15s"}}>
-                    <Avatar photo={p.photo} name={p.name} size={36} ovrVal={v} color={getColor(v)} />
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:13,color:"#e0f0ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
-                      <div style={{fontSize:10,color:"#5577aa"}}>{p.club}</div>
-                    </div>
-                    <div style={{background:"#0d2340",borderRadius:3,padding:"2px 6px",fontSize:11,fontWeight:700,color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif",flexShrink:0}}>{p.pos}</div>
-                  </div>
-                );
-              })}
-              {filtered.length===0 && <p style={{color:"#335577",fontSize:12,textAlign:"center",marginTop:20}}>검색 결과 없음</p>}
+              {sidebarViewMode==="position" ? (
+                <>
+                  {PLAYER_GROUPS.map(g=>{
+                    const groupPlayers = filtered.filter(p=>g.positions.includes(p.pos));
+                    if(groupPlayers.length===0) return null;
+                    return (
+                      <div key={g.key} style={{marginBottom:12}}>
+                        <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:5,borderBottom:"1px solid #0d2340",paddingBottom:3}}>{g.label} ({groupPlayers.length})</div>
+                        {groupPlayers.map(renderPlayerRow)}
+                      </div>
+                    );
+                  })}
+                  {filtered.length===0 && <p style={{color:"#335577",fontSize:12,textAlign:"center",marginTop:20}}>검색 결과 없음</p>}
+                </>
+              ) : (
+                <>
+                  {filtered.map(renderPlayerRow)}
+                  {filtered.length===0 && <p style={{color:"#335577",fontSize:12,textAlign:"center",marginTop:20}}>검색 결과 없음</p>}
+                </>
+              )}
             </div>
             <div style={{padding:"9px 10px",borderTop:"1px solid #0d2340"}}>
               <button onClick={startAdd} style={{width:"100%",background:"linear-gradient(135deg,#1e6ba8,#0d4a7a)",border:"none",color:"#fff",borderRadius:5,padding:"8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>+ 선수 추가</button>
@@ -680,7 +858,7 @@ export default function App(){
                   <input ref={photoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>loadPhoto(e.target.files[0],"new")} />
                 </div>
                 <div className="add-player-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9,marginBottom:14}}>
-                  {[{l:"이름",k:"name",t:"text"},{l:"나이",k:"age",t:"number"},{l:"구단",k:"club",t:"text"},{l:"몸값",k:"val",t:"text"}].map(({l,k,t})=>(
+                  {[{l:"이름",k:"name",t:"text"},{l:"등번호",k:"number",t:"number"},{l:"나이",k:"age",t:"number"},{l:"구단",k:"club",t:"text"},{l:"키(cm)",k:"heightCm",t:"number"},{l:"몸무게(kg)",k:"weightKg",t:"number"},{l:"사이즈",k:"size",t:"text"}].map(({l,k,t})=>(
                     <div key={k}>
                       <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>{l}</div>
                       <input type={t} value={newP[k]} onChange={e=>setNewP(p=>({...p,[k]:e.target.value}))} style={INPUT} />
@@ -721,7 +899,7 @@ export default function App(){
                 {/* header */}
                 <div className="player-header-card" style={{...cardStyle,border:`1px solid ${selTeam?.color||"#1e3a5f"}`,marginBottom:12,display:"flex",alignItems:"center",gap:14}}>
                   <div style={{position:"relative",flexShrink:0}}>
-                    <Avatar photo={display.photo} name={display.name} size={62} ovrVal={ovrVal} color={getColor(ovrVal)} />
+                    <Avatar photo={display.photo} name={display.name} size={62} ovrVal={ovrVal} color={getColor(ovrVal)} mode={cardMode} number={display.number} pos={display.pos} />
                     {editing && (
                       <>
                         <div onClick={()=>editPhotoRef.current?.click()} style={{position:"absolute",bottom:0,right:0,background:"#1e6ba8",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,cursor:"pointer",border:"1px solid #2a8ad4"}}>📷</div>
@@ -747,12 +925,12 @@ export default function App(){
                           : <span style={{fontSize:12,fontWeight:700,color:"#4499dd"}}>{display.pos}</span>
                         }
                       </div>
-                      {["age","club","val"].map(k=>(
+                      {[{k:"number",l:"등번호",unit:""},{k:"age",l:"나이",unit:""},{k:"club",l:"구단",unit:""},{k:"heightCm",l:"키",unit:"cm"},{k:"weightKg",l:"몸무게",unit:"kg"},{k:"size",l:"사이즈",unit:""}].map(({k,l,unit})=>(
                         <div key={k} style={{background:"#0d1b2a",borderRadius:4,padding:"3px 8px"}}>
-                          <span style={{fontSize:9,color:"#335577"}}>{k==="age"?"나이":k==="club"?"구단":"몸값"} </span>
+                          <span style={{fontSize:9,color:"#335577"}}>{l} </span>
                           {editing
-                            ? <input type={k==="age"?"number":"text"} value={editD[k]} onChange={e=>setEditD(d=>({...d,[k]:e.target.value}))} style={{background:"transparent",border:"none",color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,width:70,outline:"none"}} />
-                            : <span style={{fontSize:12,fontWeight:700,color:"#4499dd"}}>{display[k]}</span>
+                            ? <input type={k==="club"||k==="size"?"text":"number"} value={editD[k]} onChange={e=>setEditD(d=>({...d,[k]:e.target.value}))} style={{background:"transparent",border:"none",color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,width:70,outline:"none"}} />
+                            : <span style={{fontSize:12,fontWeight:700,color:"#4499dd"}}>{display[k]}{display[k]!==""&&display[k]!=null?unit:""}</span>
                           }
                         </div>
                       ))}
@@ -902,7 +1080,7 @@ export default function App(){
                       const v=ovr(p.attrs);
                       return (
                         <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,background:"#0a1a2e",borderRadius:5,padding:"7px 10px"}}>
-                          <Avatar photo={p.photo} name={p.name} size={30} ovrVal={v} color={getColor(v)} />
+                          <Avatar photo={p.photo} name={p.name} size={30} ovrVal={v} color={getColor(v)} mode={cardMode} number={p.number} pos={p.pos} />
                           <div style={{flex:1,minWidth:0}}>
                             <div style={{fontSize:12,fontWeight:700,color:"#e0f0ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
                             <div style={{fontSize:10,color:"#4477aa"}}>{p.pos} · {p.club}</div>
@@ -930,6 +1108,16 @@ export default function App(){
         <div className="best11-layout" style={{display:"flex",flex:1,minHeight:0,overflow:"hidden"}}>
           {/* pitch */}
           <div className="best11-pitch-col" style={{flex:"0 0 420px",padding:"14px 14px 14px 18px",display:"flex",flexDirection:"column",gap:10,overflowY:"auto"}}>
+            {activeMatch && (
+              <div style={{background:"#0d2a1a",border:"1px solid #1e5a30",borderRadius:8,padding:"9px 13px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                <div style={{flex:1,minWidth:120}}>
+                  <div style={{fontSize:9,color:"#69f0ae",fontWeight:700,letterSpacing:1}}>📌 경기 라인업 편집 중</div>
+                  <div style={{fontSize:12,fontWeight:700,color:"#e0f0ff"}}>{activeMatch.date} · vs {activeMatch.opponent} ({activeMatch.homeAway==="home"?"홈":"원정"})</div>
+                </div>
+                <button onClick={saveMatchLineup} style={{background:"#1e6ba8",border:"none",color:"#fff",borderRadius:5,padding:"6px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>💾 라인업 저장</button>
+                <button onClick={exitMatchEdit} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"6px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>닫기</button>
+              </div>
+            )}
             <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
               <span style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700,letterSpacing:2}}>🏆 베스트 11</span>
               <select value={formation} onChange={e=>{const f=e.target.value;setFormation(f);setLineup(Array(FORMATIONS[f].length).fill(null));setSelSlot(null);setSlotPositions({});setSlotPosOverrides({});}} style={{...INPUT,width:"auto",fontSize:12,padding:"5px 10px",flex:1,minWidth:90}}>
@@ -967,7 +1155,7 @@ export default function App(){
                 📌 슬롯 {selSlot+1} ({slots[selSlot]?.p}) — 오른쪽에서 선수를 클릭하세요
               </div>
             )}
-            <Pitch formation={formation} lineup={lineup} players={players} onSlot={handleSlot} selSlot={selSlot} slotPositions={slotPositions} onDragEnd={handleDragEnd} slotPosOverrides={slotPosOverrides} showZones={showZones} showChannels={showChannels} />
+            <Pitch formation={formation} lineup={lineup} players={players} onSlot={handleSlot} selSlot={selSlot} slotPositions={slotPositions} onDragEnd={handleDragEnd} slotPosOverrides={slotPosOverrides} showZones={showZones} showChannels={showChannels} cardMode={cardMode} />
             {/* lineup table */}
             <div style={{...cardStyle}}>
               <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:8}}>라인업</div>
@@ -984,7 +1172,7 @@ export default function App(){
                         fontSize:11,fontWeight:700,width:48,flexShrink:0,textAlign:"center",outline:"none"}}/>
                     {p ? (
                       <>
-                        <Avatar photo={p.photo} name={p.name} size={22} ovrVal={v} color={getColor(v)} />
+                        <Avatar photo={p.photo} name={p.name} size={22} ovrVal={v} color={getColor(v)} mode={cardMode} number={p.number} pos={p.pos} />
                         <span style={{flex:1,fontSize:12,fontWeight:700,color:"#e0f0ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</span>
                         <span style={{fontSize:11,fontWeight:700,color:getColor(v),flexShrink:0}}>{v}</span>
                         <button onClick={()=>{const nl=[...lineup];nl[i]=null;setLineup(nl);}} style={{background:"transparent",border:"none",color:"#335577",cursor:"pointer",fontSize:10,flexShrink:0}}>✕</button>
@@ -1012,7 +1200,7 @@ export default function App(){
                   const v=ovr(p.attrs);
                   return (
                     <div key={pid} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #0d2340"}}>
-                      <Avatar photo={p.photo} name={p.name} size={22} ovrVal={v} color={getColor(v)} />
+                      <Avatar photo={p.photo} name={p.name} size={22} ovrVal={v} color={getColor(v)} mode={cardMode} number={p.number} pos={p.pos} />
                       <span style={{flex:1,fontSize:12,fontWeight:700,color:"#e0f0ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</span>
                       <span style={{background:"#0d2340",borderRadius:3,padding:"1px 6px",fontSize:10,fontWeight:700,color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif"}}>{p.pos}</span>
                       <span style={{fontSize:11,fontWeight:700,color:getColor(v),flexShrink:0}}>{v}</span>
@@ -1040,7 +1228,7 @@ export default function App(){
                 return (
                   <div key={p.id} onClick={()=>selSlot!==null?assignSlot(p.id):null}
                     style={{display:"flex",alignItems:"center",gap:9,background:inL?"#0d2a1a":inBench?"#241a0a":"#071525",border:inL?"1px solid #1e5a30":inBench?"1px solid #5a3a1a":"1px solid #0d2340",borderRadius:6,padding:"8px 10px",marginBottom:5,cursor:selSlot!==null?"pointer":"default",opacity:inL&&selSlot===null?0.6:1,transition:"all 0.15s"}}>
-                    <Avatar photo={p.photo} name={p.name} size={36} ovrVal={v} color={getColor(v)} />
+                    <Avatar photo={p.photo} name={p.name} size={36} ovrVal={v} color={getColor(v)} mode={cardMode} number={p.number} pos={p.pos} />
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:700,color:"#e0f0ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
                       <div style={{fontSize:10,color:"#5577aa"}}>{p.club}</div>
@@ -1059,6 +1247,67 @@ export default function App(){
         </div>
       )}
 
+      {/* ===== MATCH SCHEDULE VIEW ===== */}
+      {nav==="경기 일정" && (
+        <div className="team-view" style={{flex:1,overflowY:"auto",padding:"16px 24px"}}>
+          <div style={{display:"flex",alignItems:"center",marginBottom:16}}>
+            <span style={{fontFamily:"'Oswald',sans-serif",fontSize:19,fontWeight:700,letterSpacing:2}}>📅 경기 일정</span>
+            <button onClick={startAddMatch} style={{marginLeft:"auto",background:"linear-gradient(135deg,#1e6ba8,#0d4a7a)",border:"none",color:"#fff",borderRadius:5,padding:"7px 16px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>+ 경기 추가</button>
+          </div>
+          {addingMatch && (
+            <div style={{...cardStyle,border:"1px solid #1e3a5f",marginBottom:16}}>
+              <div style={{fontSize:11,color:"#4499dd",fontWeight:700,letterSpacing:1,marginBottom:9}}>새 경기 등록</div>
+              <div style={{display:"flex",gap:9,alignItems:"flex-end",flexWrap:"wrap"}}>
+                <div style={{flex:1,minWidth:130}}>
+                  <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>날짜</div>
+                  <input type="date" value={newMatch.date} onChange={e=>setNewMatch(m=>({...m,date:e.target.value}))} style={INPUT} />
+                </div>
+                <div style={{flex:2,minWidth:150}}>
+                  <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>상대팀</div>
+                  <input value={newMatch.opponent} onChange={e=>setNewMatch(m=>({...m,opponent:e.target.value}))} placeholder="예: 안양 유나이티드" style={INPUT} />
+                </div>
+                <div style={{flex:1,minWidth:100}}>
+                  <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>홈/원정</div>
+                  <select value={newMatch.homeAway} onChange={e=>setNewMatch(m=>({...m,homeAway:e.target.value}))} style={INPUT}>
+                    <option value="home">홈</option>
+                    <option value="away">원정</option>
+                  </select>
+                </div>
+                <div style={{flex:2,minWidth:150}}>
+                  <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>리그/대회 (선택)</div>
+                  <input value={newMatch.competition} onChange={e=>setNewMatch(m=>({...m,competition:e.target.value}))} placeholder="예: 사회인리그 3부" style={INPUT} />
+                </div>
+                <button onClick={saveNewMatch} style={{background:"#1e6ba8",border:"none",color:"#fff",borderRadius:5,padding:"8px 16px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>저장</button>
+                <button onClick={()=>setAddingMatch(false)} style={{background:"#1a2a3a",border:"1px solid #1e3a5f",color:"#8899aa",borderRadius:5,padding:"8px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>취소</button>
+              </div>
+            </div>
+          )}
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {sortedMatches.map(m=>{
+              const avgO = matchAvgOvr(m);
+              return (
+                <div key={m.id} onClick={()=>openMatch(m)}
+                  style={{background:"#071525",border:activeMatchId===m.id?"1px solid #2a8ad4":"1px solid #0d2340",borderLeft:`4px solid ${m.homeAway==="home"?"#1e6ba8":"#c0392b"}`,borderRadius:8,padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:14}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+                      <span style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700}}>vs {m.opponent}</span>
+                      <span style={{fontSize:10,fontWeight:700,color:m.homeAway==="home"?"#4499dd":"#ef7a68",background:m.homeAway==="home"?"#0d2340":"#2a1010",borderRadius:3,padding:"2px 7px"}}>{m.homeAway==="home"?"홈":"원정"}</span>
+                    </div>
+                    <div style={{fontSize:11,color:"#5577aa"}}>{m.date}{m.competition?` · ${m.competition}`:""}</div>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2,flexShrink:0}}>
+                    <span style={{fontSize:11,fontWeight:700,color:"#88bbdd"}}>{formationShort(m.formation)}</span>
+                    <span style={{fontSize:14,fontWeight:900,color:avgO!=null?getColor(avgO):"#335577",fontFamily:"'Oswald',sans-serif"}}>{avgO!=null?`OVR ${avgO}`:"미배치"}</span>
+                  </div>
+                  <button onClick={e=>{e.stopPropagation(); delMatch(m.id);}} style={{background:"#2a1010",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"5px 9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",flexShrink:0}}>삭제</button>
+                </div>
+              );
+            })}
+            {sortedMatches.length===0 && <p style={{color:"#335577",fontSize:12,textAlign:"center",marginTop:20}}>등록된 경기가 없습니다. "+ 경기 추가"로 새 경기를 등록하세요.</p>}
+          </div>
+        </div>
+      )}
+
       {/* CLOUD CONFLICT MODAL */}
       {conflict && (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}}>
@@ -1068,11 +1317,11 @@ export default function App(){
             <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
               <div style={{background:"#071525",border:"1px solid #0d2340",borderRadius:6,padding:"9px 12px",fontSize:12}}>
                 <div style={{color:"#4499dd",fontWeight:700,marginBottom:2}}>☁ 클라우드 데이터</div>
-                <div style={{color:"#8899aa"}}>선수 {conflict.players.length}명 · 팀 {conflict.teams.length}개</div>
+                <div style={{color:"#8899aa"}}>선수 {conflict.players.length}명 · 팀 {conflict.teams.length}개 · 경기 {(conflict.matches||[]).length}개</div>
               </div>
               <div style={{background:"#071525",border:"1px solid #0d2340",borderRadius:6,padding:"9px 12px",fontSize:12}}>
                 <div style={{color:"#69f0ae",fontWeight:700,marginBottom:2}}>📱 이 기기 데이터</div>
-                <div style={{color:"#8899aa"}}>선수 {players.length}명 · 팀 {teams.length}개</div>
+                <div style={{color:"#8899aa"}}>선수 {players.length}명 · 팀 {teams.length}개 · 경기 {matches.length}개</div>
               </div>
             </div>
             <div style={{display:"flex",gap:8}}>
