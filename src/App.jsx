@@ -361,6 +361,7 @@ export default function App(){
   const [showBench, setShowBench] = useState(true);
   const [showZones, setShowZones] = useState(false);
   const [showChannels, setShowChannels] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const photoRef = useRef();
   const editPhotoRef = useRef();
@@ -544,28 +545,61 @@ export default function App(){
   const cardStyle = {background:"#071525",border:"1px solid #0d2340",borderRadius:8,padding:"12px 15px"};
 
   return (
-    <div style={{minHeight:"100vh",background:"#030c14",fontFamily:"'Barlow Condensed',sans-serif",color:"#e0f0ff",display:"flex",flexDirection:"column"}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Oswald:wght@400;700&display=swap');*{box-sizing:border-box}::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:2px}select option{background:#0d1b2a}`}</style>
+    <div className="app-shell" style={{background:"#030c14",fontFamily:"'Barlow Condensed',sans-serif",color:"#e0f0ff",display:"flex",flexDirection:"column"}}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Oswald:wght@400;700&display=swap');
+        *{box-sizing:border-box}
+        ::-webkit-scrollbar{width:4px}
+        ::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:2px}
+        select option{background:#0d1b2a}
+        .app-shell{height:100vh;height:100dvh;}
+        .sidebar-toggle-btn{display:none;}
+        @media (max-width:480px){
+          .app-header{flex-wrap:wrap;row-gap:8px;padding:8px 12px !important;}
+          .app-title-main{font-size:13px !important;}
+          .nav-row{order:2;}
+          .auth-controls{margin-left:0 !important;order:3;width:100%;justify-content:flex-end;flex-wrap:wrap;row-gap:6px;}
+          .player-count-label{order:4;width:100%;}
+
+          .sidebar-toggle-btn{display:flex !important;}
+          .player-layout{flex-direction:column !important;height:auto !important;overflow:visible !important;}
+          .player-sidebar{width:100% !important;height:42vh !important;border-right:none !important;border-bottom:1px solid #0d2340;}
+          .player-sidebar.collapsed{display:none !important;}
+          .player-main{height:auto !important;overflow-y:visible !important;padding:12px 14px !important;}
+          .player-header-card{flex-wrap:wrap !important;}
+          .add-player-grid{grid-template-columns:1fr 1fr !important;}
+
+          .team-view{padding:12px 14px !important;}
+
+          .best11-layout{flex-direction:column !important;height:auto !important;overflow:visible !important;}
+          .best11-pitch-col{flex:none !important;width:100% !important;overflow-y:visible !important;padding:12px !important;}
+          .best11-picker-col{flex:none !important;width:100% !important;border-left:none !important;border-top:1px solid #0d2340;overflow:visible !important;}
+          .best11-picker-col > div{overflow-y:visible !important;}
+
+          button{min-height:40px;padding-top:8px !important;padding-bottom:8px !important;}
+          input, select{min-height:38px;font-size:14px !important;}
+        }
+      `}</style>
 
       {/* HEADER */}
-      <div style={{background:"linear-gradient(90deg,#071525,#0a1e35)",borderBottom:"2px solid #1e3a5f",padding:"9px 18px",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+      <div className="app-header" style={{background:"linear-gradient(90deg,#071525,#0a1e35)",borderBottom:"2px solid #1e3a5f",padding:"9px 18px",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
 
-        
+
         <div>
-          <div style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700,letterSpacing:2}}>EZRA FOOTBALL MANAGER</div>
+          <div className="app-title-main" style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700,letterSpacing:2}}>EZRA FOOTBALL MANAGER</div>
           <div style={{fontSize:10,color:"#e0f0ff",fontWeight:700,letterSpacing:0.5}}>에스라 풋볼 매니저 · 선수 능력치 관리</div>
         </div>
-        <div style={{display:"flex",gap:3,marginLeft:16}}>
+        <div className="nav-row" style={{display:"flex",gap:3,marginLeft:16,flexWrap:"wrap"}}>
           {NAV.map(n=>(
             <button key={n} onClick={()=>setNav(n)} style={{background:nav===n?"#1e6ba8":"transparent",border:nav===n?"1px solid #2a8ad4":"1px solid #1e3a5f",color:nav===n?"#fff":"#5577aa",borderRadius:5,padding:"5px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>
               {n==="베스트 11"?"🏆 "+n:n}
             </button>
           ))}
         </div>
-        <span style={{marginLeft:"auto",fontSize:10,color:"#335577"}}>선수 {players.length}명 · 팀 {teams.length}개</span>
+        <span className="player-count-label" style={{marginLeft:"auto",fontSize:10,color:"#335577"}}>선수 {players.length}명 · 팀 {teams.length}개</span>
 
         {!authLoading && (user ? (
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <div className="auth-controls" style={{display:"flex",alignItems:"center",gap:8}}>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               {user.photoURL
                 ? <img src={user.photoURL} alt={user.displayName||"user"} referrerPolicy="no-referrer" style={{width:22,height:22,borderRadius:"50%"}} />
@@ -584,7 +618,7 @@ export default function App(){
             <button onClick={handleLogout} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"5px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>로그아웃</button>
           </div>
         ) : (
-          <button onClick={handleLogin} style={{display:"flex",alignItems:"center",gap:6,background:"#fff",border:"1px solid #ccc",color:"#333",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+          <button className="auth-controls" onClick={handleLogin} style={{display:"flex",alignItems:"center",gap:6,background:"#fff",border:"1px solid #ccc",color:"#333",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>
             <GoogleIcon /> Google로 로그인
           </button>
         ))}
@@ -593,9 +627,12 @@ export default function App(){
 
       {/* ===== PLAYER VIEW ===== */}
       {nav==="선수" && (
-        <div style={{display:"flex",flex:1,height:"calc(100vh - 56px)",overflow:"hidden"}}>
+        <div className="player-layout" style={{display:"flex",flex:1,minHeight:0,overflow:"hidden"}}>
+          <button className="sidebar-toggle-btn" onClick={()=>setSidebarOpen(v=>!v)} style={{alignItems:"center",justifyContent:"center",gap:6,background:"#0d2340",border:"none",borderBottom:"1px solid #1e3a5f",color:"#88bbdd",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+            ☰ 선수 목록 {sidebarOpen?"숨기기":`보기 (${players.length})`}
+          </button>
           {/* sidebar */}
-          <div style={{width:232,background:"#050f1a",borderRight:"1px solid #0d2340",display:"flex",flexDirection:"column",flexShrink:0}}>
+          <div className={`player-sidebar${sidebarOpen?"":" collapsed"}`} style={{width:232,background:"#050f1a",borderRight:"1px solid #0d2340",display:"flex",flexDirection:"column",flexShrink:0}}>
             <div style={{padding:"9px 10px",borderBottom:"1px solid #0d2340",display:"flex",flexDirection:"column",gap:5}}>
               <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="검색…" style={{...INPUT,fontSize:11,padding:"5px 9px"}} />
               <select value={fTeam} onChange={e=>setFTeam(e.target.value)} style={{...INPUT,fontSize:11,padding:"4px 8px"}}>
@@ -628,7 +665,7 @@ export default function App(){
           </div>
 
           {/* main */}
-          <div style={{flex:1,overflowY:"auto",padding:"15px 20px"}}>
+          <div className="player-main" style={{flex:1,overflowY:"auto",padding:"15px 20px"}}>
 
             {/* ADD FORM */}
             {adding && newP && (
@@ -642,7 +679,7 @@ export default function App(){
                   <div style={{fontSize:11,color:"#4477aa"}}>클릭해서 사진 업로드<br/><span style={{fontSize:10,color:"#335577"}}>JPG / PNG</span></div>
                   <input ref={photoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>loadPhoto(e.target.files[0],"new")} />
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9,marginBottom:14}}>
+                <div className="add-player-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9,marginBottom:14}}>
                   {[{l:"이름",k:"name",t:"text"},{l:"나이",k:"age",t:"number"},{l:"구단",k:"club",t:"text"},{l:"몸값",k:"val",t:"text"}].map(({l,k,t})=>(
                     <div key={k}>
                       <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>{l}</div>
@@ -682,7 +719,7 @@ export default function App(){
             {!adding && display && (
               <div>
                 {/* header */}
-                <div style={{...cardStyle,border:`1px solid ${selTeam?.color||"#1e3a5f"}`,marginBottom:12,display:"flex",alignItems:"center",gap:14}}>
+                <div className="player-header-card" style={{...cardStyle,border:`1px solid ${selTeam?.color||"#1e3a5f"}`,marginBottom:12,display:"flex",alignItems:"center",gap:14}}>
                   <div style={{position:"relative",flexShrink:0}}>
                     <Avatar photo={display.photo} name={display.name} size={62} ovrVal={ovrVal} color={getColor(ovrVal)} />
                     {editing && (
@@ -828,7 +865,7 @@ export default function App(){
 
       {/* ===== TEAM VIEW ===== */}
       {nav==="팀 관리" && (
-        <div style={{flex:1,overflowY:"auto",padding:"16px 24px"}}>
+        <div className="team-view" style={{flex:1,overflowY:"auto",padding:"16px 24px"}}>
           <div style={{display:"flex",alignItems:"center",marginBottom:16}}>
             <span style={{fontFamily:"'Oswald',sans-serif",fontSize:19,fontWeight:700,letterSpacing:2}}>팀 관리</span>
             <button onClick={()=>setAddTeam(true)} style={{marginLeft:"auto",background:"linear-gradient(135deg,#1e6ba8,#0d4a7a)",border:"none",color:"#fff",borderRadius:5,padding:"7px 16px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>+ 팀 추가</button>
@@ -890,9 +927,9 @@ export default function App(){
 
       {/* ===== BEST 11 VIEW ===== */}
       {nav==="베스트 11" && (
-        <div style={{display:"flex",flex:1,height:"calc(100vh - 56px)",overflow:"hidden"}}>
+        <div className="best11-layout" style={{display:"flex",flex:1,minHeight:0,overflow:"hidden"}}>
           {/* pitch */}
-          <div style={{flex:"0 0 420px",padding:"14px 14px 14px 18px",display:"flex",flexDirection:"column",gap:10,overflowY:"auto"}}>
+          <div className="best11-pitch-col" style={{flex:"0 0 420px",padding:"14px 14px 14px 18px",display:"flex",flexDirection:"column",gap:10,overflowY:"auto"}}>
             <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
               <span style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700,letterSpacing:2}}>🏆 베스트 11</span>
               <select value={formation} onChange={e=>{const f=e.target.value;setFormation(f);setLineup(Array(FORMATIONS[f].length).fill(null));setSelSlot(null);setSlotPositions({});setSlotPosOverrides({});}} style={{...INPUT,width:"auto",fontSize:12,padding:"5px 10px",flex:1,minWidth:90}}>
@@ -988,7 +1025,7 @@ export default function App(){
           </div>
 
           {/* picker */}
-          <div style={{flex:1,background:"#050f1a",borderLeft:"1px solid #0d2340",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          <div className="best11-picker-col" style={{flex:1,background:"#050f1a",borderLeft:"1px solid #0d2340",display:"flex",flexDirection:"column",overflow:"hidden"}}>
             <div style={{padding:"10px 12px",borderBottom:"1px solid #0d2340",flexShrink:0}}>
               <div style={{fontSize:11,color:"#4499dd",fontWeight:700,letterSpacing:1,marginBottom:7}}>선수 선택 {selSlot!==null?`— ${slots[selSlot]?.p} 슬롯`:""}</div>
               <select value={formFilter} onChange={e=>setFormFilter(e.target.value)} style={{...INPUT,fontSize:11,padding:"4px 8px"}}>
