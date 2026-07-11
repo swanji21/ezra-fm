@@ -509,7 +509,7 @@ export default function App(){
             </div>
             {cloudError ? (
               <>
-                <span title={cloudError} style={{fontSize:9,color:"#ef5350"}}>⚠ 동기화 실패</span>
+                <button title={cloudError} onClick={()=>alert("동기화 실패 원인:\n"+cloudError)} style={{background:"transparent",border:"none",color:"#ef5350",fontSize:9,fontFamily:"'Barlow Condensed',sans-serif",cursor:"pointer",textDecoration:"underline"}}>⚠ 동기화 실패 (탭하여 원인 보기)</button>
                 <button onClick={retryCloudSync} style={{background:"transparent",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"4px 9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>재시도</button>
               </>
             ) : (
