@@ -51,9 +51,9 @@ const FORMATION_NOTES = {
   "8v8 · 3-1-3": {강점:"공격 라인 두터움, 압박 강도 높음",약점:"미드필드 얇음, 역습 취약",추천:"강한 압박 축구 지향 팀"},
 };
 
-// 포메이션 라인 연결용 포지션 그룹 (수비 / 미드필더 / 공격수)
+// 포메이션 라인 연결용 포지션 그룹 (골키퍼는 제외 / 수비 / 미드필더 / 공격수)
 const POSITION_GROUPS = [
-  {key:"def", positions:["GK","CB","LB","RB"], color:"#4499dd"},
+  {key:"def", positions:["CB","LB","RB"], color:"#4499dd"},
   {key:"mid", positions:["CDM","CM","CAM","LM","RM"], color:"#ffd54f"},
   {key:"att", positions:["LW","RW","ST"], color:"#ff7043"},
 ];
@@ -300,11 +300,14 @@ function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd,
     window.addEventListener('touchend', up);
   }
 
-  // 그룹별(수비/미드필더/공격수) 라인업 좌표 — x 순서로 이어서 포메이션 라인을 그린다
+  // 그룹별(수비/미드필더/공격수, 골키퍼 제외) 라인업 좌표 — x 순서로 이어서 포메이션 라인을 그린다.
+  // 드래그로 위치가 바뀌면 자동 판정된 현재 포지션(slotPosOverrides)을 기준으로 소속 그룹도 함께 갱신된다.
   const groupLines = POSITION_GROUPS.map(g=>{
     const pts = slots
       .map((slot,i)=>{
-        if(!g.positions.includes(slot.p) || !lineup[i]) return null;
+        if(!lineup[i]) return null;
+        const curPos = (slotPosOverrides&&slotPosOverrides[i]) || slot.p;
+        if(!g.positions.includes(curPos)) return null;
         const pos = (slotPositions&&slotPositions[i]) || slot;
         return {x:pos.x, y:pos.y};
       })
@@ -447,7 +450,6 @@ export default function App(){
   const [authLoading, setAuthLoading] = useState(true);
   const [cloudReady, setCloudReady] = useState(false);
   const [cloudError, setCloudError] = useState(null);
-  const [conflict, setConflict] = useState(null); // { players, teams, matches } from cloud, when it differs from this device's data
   const [retryTick, setRetryTick] = useState(0);
 
   function loadLocalData(){
@@ -460,6 +462,14 @@ export default function App(){
     setPlayers(p); setSel(p[0]||null); setTeams(t); setMatches(m);
   }
 
+  // 이 기기가 마지막으로 동기화한 클라우드 버전의 시각(uid별로 저장) — 기기 간 자동 동기화 기준점
+  function getLocalSyncedAt(uid){
+    return Number(localStorage.getItem(`ezra-syncedAt-${uid}`)) || 0;
+  }
+  function setLocalSyncedAt(uid, ts){
+    localStorage.setItem(`ezra-syncedAt-${uid}`, String(ts));
+  }
+
   // 로그인 상태 감지
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => { setUser(u); setAuthLoading(false); });
@@ -468,11 +478,12 @@ export default function App(){
 
   // 로그아웃 상태: 이 기기(localStorage)의 데이터를 불러옴
   useEffect(() => {
-    if(!user){ setCloudReady(false); setCloudError(null); setConflict(null); loadLocalData(); }
+    if(!user){ setCloudReady(false); setCloudError(null); loadLocalData(); }
   }, [user]);
 
   // 로그인 상태: Firestore의 클라우드 데이터를 우선 확인.
-  // 이 기기 데이터와 다르면 사용자가 선택할 때까지 대기하고, 같거나 클라우드에 데이터가 없으면 바로 반영.
+  // 여러 기기를 오갈 때 매번 "어느 쪽을 쓸지" 묻지 않도록, updatedAt 타임스탬프를 기준으로
+  // 더 최신 쪽을 자동으로 채택한다 (마지막에 저장한 기기의 데이터가 항상 이긴다).
   // 클라우드 접근에 실패하면(권한/네트워크 오류) "동기화됨"으로 위장하지 않고 에러를 표시한다.
   useEffect(() => {
     if(!user) return;
@@ -486,18 +497,27 @@ export default function App(){
         if(cancelled) return;
         if(snap.exists()){
           const data = snap.data();
-          const cloudPlayers = data.players || [];
-          const cloudTeams = data.teams || [];
-          const cloudMatches = data.matches || [];
-          const same = JSON.stringify(cloudPlayers)===JSON.stringify(players) && JSON.stringify(cloudTeams)===JSON.stringify(teams) && JSON.stringify(cloudMatches)===JSON.stringify(matches);
-          if(same){
+          const cloudUpdatedAt = data.updatedAt || 0;
+          const localSyncedAt = getLocalSyncedAt(user.uid);
+          if(cloudUpdatedAt >= localSyncedAt){
+            // 클라우드가 이 기기가 마지막으로 알던 것과 같거나 더 최신 → 클라우드 데이터를 그대로 채택
+            const cloudPlayers = data.players || [];
+            const cloudTeams = data.teams || [];
+            const cloudMatches = data.matches || [];
             setPlayers(cloudPlayers); setSel(cloudPlayers[0]||null); setTeams(cloudTeams); setMatches(cloudMatches);
+            setLocalSyncedAt(user.uid, cloudUpdatedAt);
             setCloudReady(true);
           } else {
-            setConflict({players:cloudPlayers, teams:cloudTeams, matches:cloudMatches});
+            // 이 기기에 클라우드보다 최신인(아직 못 올라간) 데이터가 있음 → 밀어올림
+            const ts = Date.now();
+            await setDoc(ref, { players, teams, matches, updatedAt: ts });
+            setLocalSyncedAt(user.uid, ts);
+            setCloudReady(true);
           }
         } else {
-          await setDoc(ref, { players, teams, matches, updatedAt: Date.now() });
+          const ts = Date.now();
+          await setDoc(ref, { players, teams, matches, updatedAt: ts });
+          setLocalSyncedAt(user.uid, ts);
           setCloudReady(true);
         }
       } catch(e){
@@ -524,12 +544,14 @@ export default function App(){
     localStorage.setItem("ezra-matches", JSON.stringify(matches));
   }, [matches, user]);
 
-  // 로그인 상태: Firebase에 저장 (충돌 해결 전이거나 에러 상태면 저장하지 않음)
+  // 로그인 상태: 변경될 때마다 자동으로 Firebase에 저장하고, 이 기기의 동기화 시각도 갱신
   useEffect(() => {
-    if(!user || !cloudReady || conflict) return;
-    setDoc(doc(db, "users", user.uid), { players, teams, matches, updatedAt: Date.now() }, { merge: true })
+    if(!user || !cloudReady) return;
+    const ts = Date.now();
+    setDoc(doc(db, "users", user.uid), { players, teams, matches, updatedAt: ts }, { merge: true })
+      .then(() => setLocalSyncedAt(user.uid, ts))
       .catch(e => { console.error("클라우드 저장 실패", e); setCloudError(e.code || e.message || String(e)); });
-  }, [players, teams, matches, user, cloudReady, conflict]);
+  }, [players, teams, matches, user, cloudReady]);
 
   async function handleLogin(){
     try { await signInWithPopup(auth, googleProvider); }
@@ -540,18 +562,6 @@ export default function App(){
   function retryCloudSync(){
     setCloudError(null);
     setRetryTick(t => t+1);
-  }
-
-  function resolveKeepCloud(){
-    if(!conflict) return;
-    setPlayers(conflict.players); setSel(conflict.players[0]||null); setTeams(conflict.teams); setMatches(conflict.matches||[]);
-    setConflict(null); setCloudReady(true); setCloudError(null);
-  }
-  function resolveKeepLocal(){
-    if(!user || !conflict) return;
-    setDoc(doc(db, "users", user.uid), { players, teams, matches, updatedAt: Date.now() })
-      .then(() => { setConflict(null); setCloudReady(true); setCloudError(null); })
-      .catch(e => { console.error("클라우드 저장 실패", e); setCloudError(e.code || e.message || String(e)); });
   }
 
   const teamMap = useMemo(()=>Object.fromEntries(teams.map(t=>[t.id,t])),[teams]);
@@ -783,7 +793,7 @@ export default function App(){
                 <button onClick={retryCloudSync} style={{background:"transparent",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"4px 9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>재시도</button>
               </>
             ) : (
-              <span style={{fontSize:9,color:conflict?"#ff9800":cloudReady?"#69f0ae":"#ffb84d"}}>{conflict?"⚠ 데이터 충돌":cloudReady?"☁ 동기화됨":"⏳ 동기화 중…"}</span>
+              <span style={{fontSize:9,color:cloudReady?"#69f0ae":"#ffb84d"}}>{cloudReady?"☁ 동기화됨":"⏳ 동기화 중…"}</span>
             )}
             <button onClick={handleLogout} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"5px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>로그아웃</button>
           </div>
@@ -1304,30 +1314,6 @@ export default function App(){
               );
             })}
             {sortedMatches.length===0 && <p style={{color:"#335577",fontSize:12,textAlign:"center",marginTop:20}}>등록된 경기가 없습니다. "+ 경기 추가"로 새 경기를 등록하세요.</p>}
-          </div>
-        </div>
-      )}
-
-      {/* CLOUD CONFLICT MODAL */}
-      {conflict && (
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}}>
-          <div style={{background:"#0a1a2e",border:"1px solid #1e3a5f",borderRadius:10,padding:"20px 24px",width:320,maxWidth:"90vw"}}>
-            <div style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700,marginBottom:9,color:"#ffb84d"}}>⚠ 데이터 충돌</div>
-            <p style={{fontSize:12,color:"#8899aa",marginBottom:14,lineHeight:1.5}}>이 기기의 데이터와 클라우드(Firestore)에 저장된 데이터가 다릅니다. 어느 데이터를 유지할까요?</p>
-            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
-              <div style={{background:"#071525",border:"1px solid #0d2340",borderRadius:6,padding:"9px 12px",fontSize:12}}>
-                <div style={{color:"#4499dd",fontWeight:700,marginBottom:2}}>☁ 클라우드 데이터</div>
-                <div style={{color:"#8899aa"}}>선수 {conflict.players.length}명 · 팀 {conflict.teams.length}개 · 경기 {(conflict.matches||[]).length}개</div>
-              </div>
-              <div style={{background:"#071525",border:"1px solid #0d2340",borderRadius:6,padding:"9px 12px",fontSize:12}}>
-                <div style={{color:"#69f0ae",fontWeight:700,marginBottom:2}}>📱 이 기기 데이터</div>
-                <div style={{color:"#8899aa"}}>선수 {players.length}명 · 팀 {teams.length}개 · 경기 {matches.length}개</div>
-              </div>
-            </div>
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={resolveKeepCloud} style={{flex:1,background:"#1e6ba8",border:"none",color:"#fff",borderRadius:5,padding:"9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>클라우드 데이터 사용</button>
-              <button onClick={resolveKeepLocal} style={{flex:1,background:"#1a2a3a",border:"1px solid #1e3a5f",color:"#e0f0ff",borderRadius:5,padding:"9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>이 기기 데이터 사용</button>
-            </div>
           </div>
         </div>
       )}
