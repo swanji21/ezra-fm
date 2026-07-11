@@ -307,7 +307,9 @@ export default function App(){
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [cloudReady, setCloudReady] = useState(false);
+  const [cloudError, setCloudError] = useState(null);
   const [conflict, setConflict] = useState(null); // { players, teams } from cloud, when it differs from this device's data
+  const [retryTick, setRetryTick] = useState(0);
 
   function loadLocalData(){
     const sp = localStorage.getItem("ezra-players");
@@ -325,15 +327,17 @@ export default function App(){
 
   // 로그아웃 상태: 이 기기(localStorage)의 데이터를 불러옴
   useEffect(() => {
-    if(!user){ setCloudReady(false); setConflict(null); loadLocalData(); }
+    if(!user){ setCloudReady(false); setCloudError(null); setConflict(null); loadLocalData(); }
   }, [user]);
 
   // 로그인 상태: Firestore의 클라우드 데이터를 우선 확인.
   // 이 기기 데이터와 다르면 사용자가 선택할 때까지 대기하고, 같거나 클라우드에 데이터가 없으면 바로 반영.
+  // 클라우드 접근에 실패하면(권한/네트워크 오류) "동기화됨"으로 위장하지 않고 에러를 표시한다.
   useEffect(() => {
     if(!user) return;
     let cancelled = false;
     setCloudReady(false);
+    setCloudError(null);
     (async () => {
       try {
         const ref = doc(db, "users", user.uid);
@@ -356,11 +360,11 @@ export default function App(){
         }
       } catch(e){
         console.error("클라우드 데이터 로드 실패", e);
-        setCloudReady(true);
+        if(!cancelled) setCloudError(e.code || e.message || String(e));
       }
     })();
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, retryTick]);
 
   // 로그아웃 상태: 이 기기에만 저장
   useEffect(() => {
@@ -373,11 +377,11 @@ export default function App(){
     localStorage.setItem("ezra-teams", JSON.stringify(teams));
   }, [teams, user]);
 
-  // 로그인 상태: Firebase에 저장 (충돌 해결 전에는 저장하지 않음)
+  // 로그인 상태: Firebase에 저장 (충돌 해결 전이거나 에러 상태면 저장하지 않음)
   useEffect(() => {
     if(!user || !cloudReady || conflict) return;
     setDoc(doc(db, "users", user.uid), { players, teams, updatedAt: Date.now() }, { merge: true })
-      .catch(e => console.error("클라우드 저장 실패", e));
+      .catch(e => { console.error("클라우드 저장 실패", e); setCloudError(e.code || e.message || String(e)); });
   }, [players, teams, user, cloudReady, conflict]);
 
   async function handleLogin(){
@@ -386,16 +390,21 @@ export default function App(){
   }
   function handleLogout(){ signOut(auth); }
 
+  function retryCloudSync(){
+    setCloudError(null);
+    setRetryTick(t => t+1);
+  }
+
   function resolveKeepCloud(){
     if(!conflict) return;
     setPlayers(conflict.players); setSel(conflict.players[0]||null); setTeams(conflict.teams);
-    setConflict(null); setCloudReady(true);
+    setConflict(null); setCloudReady(true); setCloudError(null);
   }
   function resolveKeepLocal(){
     if(!user || !conflict) return;
     setDoc(doc(db, "users", user.uid), { players, teams, updatedAt: Date.now() })
-      .catch(e => console.error("클라우드 저장 실패", e));
-    setConflict(null); setCloudReady(true);
+      .then(() => { setConflict(null); setCloudReady(true); setCloudError(null); })
+      .catch(e => { console.error("클라우드 저장 실패", e); setCloudError(e.code || e.message || String(e)); });
   }
 
   const teamMap = useMemo(()=>Object.fromEntries(teams.map(t=>[t.id,t])),[teams]);
@@ -498,7 +507,14 @@ export default function App(){
               }
               <span style={{fontSize:11,color:"#8899aa",maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.displayName||user.email}</span>
             </div>
-            <span style={{fontSize:9,color:conflict?"#ff9800":cloudReady?"#69f0ae":"#ffb84d"}}>{conflict?"⚠ 데이터 충돌":cloudReady?"☁ 동기화됨":"⏳ 동기화 중…"}</span>
+            {cloudError ? (
+              <>
+                <span title={cloudError} style={{fontSize:9,color:"#ef5350"}}>⚠ 동기화 실패</span>
+                <button onClick={retryCloudSync} style={{background:"transparent",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"4px 9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>재시도</button>
+              </>
+            ) : (
+              <span style={{fontSize:9,color:conflict?"#ff9800":cloudReady?"#69f0ae":"#ffb84d"}}>{conflict?"⚠ 데이터 충돌":cloudReady?"☁ 동기화됨":"⏳ 동기화 중…"}</span>
+            )}
             <button onClick={handleLogout} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"5px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>로그아웃</button>
           </div>
         ) : (
