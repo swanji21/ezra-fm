@@ -405,6 +405,193 @@ function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd,
   );
 }
 
+// ---------- 프린트 / 공유 ----------
+
+function escapeHtml(str){
+  return String(str??"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function printDocShell(title, bodyHtml){
+  return `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8" />
+<title>${escapeHtml(title)}</title>
+<style>
+  @page { margin: 14mm; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#fff; color:#111; font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif; }
+  .sheet { max-width: 720px; margin: 0 auto; padding: 20px 24px 40px; }
+  h1 { font-size: 21px; margin: 0 0 4px; }
+  h2 { font-size: 14px; margin: 18px 0 8px; color:#222; font-weight:700; }
+  .meta { font-size: 12px; color:#555; margin-bottom: 4px; }
+  table { width:100%; border-collapse: collapse; font-size: 13px; }
+  th, td { border: 1px solid #ccc; padding: 6px 8px; text-align:left; }
+  th { background:#f2f2f2; }
+  .pitch-wrap { display:flex; justify-content:center; margin: 10px 0; }
+  .print-toolbar { text-align:center; margin: 16px 0; }
+  .print-toolbar button { font-size:14px; padding:8px 18px; cursor:pointer; }
+  @media print { .print-toolbar { display:none; } }
+</style>
+</head><body>
+<div class="print-toolbar"><button onclick="window.print()">🖨 인쇄하기</button></div>
+<div class="sheet">${bodyHtml}</div>
+</body></html>`;
+}
+
+function openPrintWindow(title, bodyHtml){
+  const win = window.open("", "_blank");
+  if(!win){ alert("팝업이 차단되었습니다. 이 사이트의 팝업 차단을 해제해주세요."); return; }
+  win.document.open();
+  win.document.write(printDocShell(title, bodyHtml));
+  win.document.close();
+  win.focus();
+}
+
+function pitchSvgForPrint(formationName, lineup, players, slotPositions, slotPosOverrides){
+  const slots = FORMATIONS[formationName] || [];
+  const {x0,x1,y0,y1} = PITCH_BOUNDS;
+  const markers = slots.map((slot,i) => {
+    const pid = lineup[i];
+    const p = players.find(x=>x.id===pid) || null;
+    const pos = (slotPositions && slotPositions[i]) || slot;
+    const curPos = (slotPosOverrides && slotPosOverrides[i]) || slot.p;
+    const label = p ? escapeHtml(p.name) : escapeHtml(curPos);
+    const hasNum = p && p.number!==undefined && p.number!==null && p.number!=="";
+    const num = hasNum ? escapeHtml(String(p.number)) : "";
+    const svgX = pos.x;
+    const svgY = pos.y * 1.58;
+    return `<circle cx="${svgX}" cy="${svgY}" r="4.4" fill="#fff" stroke="#111" stroke-width="0.8" />`
+      + `<text x="${svgX}" y="${(svgY+1.4).toFixed(1)}" text-anchor="middle" font-size="4.2" font-weight="700" fill="#111">${num||"·"}</text>`
+      + `<text x="${svgX}" y="${(svgY+7.8).toFixed(1)}" text-anchor="middle" font-size="3.6" fill="#111">${label}</text>`;
+  }).join("");
+
+  return `<svg viewBox="0 0 100 158" width="300" height="474" style="max-width:100%;height:auto;">`
+    + `<rect x="0" y="0" width="100" height="158" fill="#fff" />`
+    + `<rect x="${x0}" y="${y0}" width="${x1-x0}" height="${y1-y0}" fill="none" stroke="#111" stroke-width="0.6" />`
+    + `<line x1="${x0}" y1="79" x2="${x1}" y2="79" stroke="#111" stroke-width="0.5" />`
+    + `<circle cx="50" cy="79" r="12" fill="none" stroke="#111" stroke-width="0.5" />`
+    + `<rect x="22" y="${y0}" width="56" height="20" fill="none" stroke="#111" stroke-width="0.5" />`
+    + `<rect x="22" y="135" width="56" height="20" fill="none" stroke="#111" stroke-width="0.5" />`
+    + markers
+    + `</svg>`;
+}
+
+function radarSvgForPrint(attrs){
+  const size=200, cx=100, cy=100, r=68;
+  const ang = i => (Math.PI*2*i/6) - Math.PI/2;
+  const pt = (i,v) => ({x:cx+r*(v/99)*Math.cos(ang(i)), y:cy+r*(v/99)*Math.sin(ang(i))});
+  const path = vs => vs.map((v,i)=>{const p=pt(i,v); return `${i===0?"M":"L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ")+"Z";
+  const vals = RADAR.map(ax=>radarVal(ax,attrs));
+  const grid = [25,50,75,99].map(lvl =>
+    `<polygon fill="none" stroke="#999" stroke-width="0.6" points="${RADAR.map((_,i)=>{const p=pt(i,lvl); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ")}" />`
+  ).join("");
+  const axes = RADAR.map((_,i)=>{const p=pt(i,99); return `<line x1="${cx}" y1="${cy}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}" stroke="#bbb" stroke-width="0.6" />`;}).join("");
+  const labels = RADAR.map((ax,i)=>{const p=pt(i,99); const lx=cx+(p.x-cx)*1.24, ly=cy+(p.y-cy)*1.24; return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#333" font-weight="700">${ax.label}</text>`;}).join("");
+  const dots = vals.map((v,i)=>{const p=pt(i,v); return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="#111" />`;}).join("");
+  return `<svg width="${size}" height="${size}">${grid}${axes}<path d="${path(vals)}" fill="rgba(0,0,0,0.08)" stroke="#111" stroke-width="2" />${dots}${labels}</svg>`;
+}
+
+function buildLineupTableRows(slots, lineup, players, slotPosOverrides){
+  return slots.map((slot,i) => {
+    const pid = lineup[i];
+    const p = players.find(x=>x.id===pid) || null;
+    const curPos = (slotPosOverrides && slotPosOverrides[i]) || slot.p;
+    const v = p ? ovr(p.attrs) : null;
+    const num = p && p.number!==undefined && p.number!==null && p.number!=="" ? escapeHtml(String(p.number)) : "-";
+    return `<tr><td>${escapeHtml(curPos)}</td><td>${p?escapeHtml(p.name):"-"}</td><td>${num}</td><td>${p?escapeHtml(p.club||"-"):"-"}</td><td>${v!=null?v:"-"}</td></tr>`;
+  }).join("");
+}
+
+function buildBenchTableRows(bench, players){
+  return (bench||[]).map(pid => {
+    const p = players.find(x=>x.id===pid);
+    if(!p) return "";
+    const num = p.number!==undefined && p.number!==null && p.number!=="" ? escapeHtml(String(p.number)) : "-";
+    return `<tr><td>${escapeHtml(p.pos)}</td><td>${escapeHtml(p.name)}</td><td>${num}</td><td>${escapeHtml(p.club||"-")}</td><td>${ovr(p.attrs)}</td></tr>`;
+  }).join("");
+}
+
+function buildLineupPrintBody({teamName,badge,formationName,matchInfo,slots,lineup,players,slotPositions,slotPosOverrides,bench}){
+  const pitch = pitchSvgForPrint(formationName, lineup, players, slotPositions, slotPosOverrides);
+  const rows = buildLineupTableRows(slots, lineup, players, slotPosOverrides);
+  const benchRows = buildBenchTableRows(bench, players);
+  const filled = lineup.filter(Boolean);
+  const avg = filled.length ? Math.round(filled.map(pid=>ovr(players.find(p=>p.id===pid)?.attrs||{})).reduce((a,b)=>a+b,0)/filled.length) : null;
+  return `<h1>${badge?escapeHtml(badge)+" ":""}${escapeHtml(teamName||"베스트 11")}</h1>`
+    + `<h2 style="margin-top:0;">포메이션: ${escapeHtml(formationName)}${avg!=null?` · 평균 OVR ${avg}`:""}</h2>`
+    + (matchInfo ? `<div class="meta">${escapeHtml(matchInfo)}</div>` : "")
+    + `<div class="pitch-wrap">${pitch}</div>`
+    + `<h2>선발 라인업</h2>`
+    + `<table><thead><tr><th>포지션</th><th>이름</th><th>등번호</th><th>구단</th><th>OVR</th></tr></thead><tbody>${rows}</tbody></table>`
+    + (bench && bench.length ? `<h2>벤치</h2><table><thead><tr><th>포지션</th><th>이름</th><th>등번호</th><th>구단</th><th>OVR</th></tr></thead><tbody>${benchRows}</tbody></table>` : "");
+}
+
+function buildPlayerPrintBody(p, team){
+  const v = ovr(p.attrs);
+  const radar = radarSvgForPrint(p.attrs);
+  const num = p.number!==undefined && p.number!==null && p.number!=="" ? escapeHtml(String(p.number)) : "-";
+  const photo = p.photo
+    ? `<img src="${p.photo}" style="width:96px;height:96px;border-radius:50%;object-fit:cover;border:2px solid #111;" />`
+    : `<div style="width:96px;height:96px;border-radius:50%;border:2px solid #111;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;">${v}</div>`;
+  return `<div style="display:flex;align-items:center;gap:20px;">`
+    + photo
+    + `<div>`
+    + `<h1>${escapeHtml(p.name)}</h1>`
+    + `<div class="meta">등번호 ${num} · ${escapeHtml(p.pos)}${team?` · ${escapeHtml(team.badge||"")} ${escapeHtml(team.name||"")}`:""}</div>`
+    + `<div class="meta">나이 ${p.age??"-"} · 구단 ${escapeHtml(p.club||"-")} · OVR ${v}</div>`
+    + `</div></div>`
+    + `<h2>능력치 레이더</h2>`
+    + `<div class="pitch-wrap">${radar}</div>`;
+}
+
+function buildLineupShareText({teamName,formationName,matchInfo,slots,lineup,players,slotPosOverrides,bench}){
+  const lines = [];
+  lines.push(`⚽ ${teamName||"베스트 11"} - ${formationName}`);
+  if(matchInfo) lines.push(matchInfo);
+  lines.push("");
+  lines.push("[선발 라인업]");
+  slots.forEach((slot,i) => {
+    const pid = lineup[i];
+    const p = players.find(x=>x.id===pid);
+    const curPos = (slotPosOverrides && slotPosOverrides[i]) || slot.p;
+    const numTag = p && p.number!==undefined && p.number!==null && p.number!=="" ? ` (#${p.number})` : "";
+    lines.push(`${curPos} - ${p ? `${p.name}${numTag}` : "미배치"}`);
+  });
+  if(bench && bench.length){
+    lines.push("");
+    lines.push("[벤치]");
+    bench.forEach(pid => {
+      const p = players.find(x=>x.id===pid);
+      if(!p) return;
+      const numTag = p.number!==undefined && p.number!==null && p.number!=="" ? ` (#${p.number})` : "";
+      lines.push(`${p.pos} - ${p.name}${numTag}`);
+    });
+  }
+  return lines.join("\n");
+}
+
+async function shareOrCopy(title, text){
+  if(navigator.share){
+    try { await navigator.share({title, text}); return; }
+    catch(e){ if(e?.name === "AbortError") return; }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    alert("클립보드에 복사되었습니다.");
+  } catch {
+    alert("공유하기가 지원되지 않는 환경입니다.\n\n"+text);
+  }
+}
+
+function inferLineupTeam(lineup, players, teamMap, teamFilter){
+  if(teamFilter && teamFilter!=="all" && teamFilter!=="none") return teamMap[teamFilter] || null;
+  const counts = {};
+  lineup.forEach(pid => {
+    const p = players.find(x=>x.id===pid);
+    if(p?.tid) counts[p.tid] = (counts[p.tid]||0)+1;
+  });
+  const top = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+  return top ? (teamMap[top[0]] || null) : null;
+}
+
 // ---------- MAIN ----------
 
 export default function App(){
@@ -688,6 +875,53 @@ export default function App(){
     return parts.length>1 ? parts[1].trim() : f;
   }
 
+  function matchInfoText(m){
+    return `${m.date} · vs ${m.opponent} (${m.homeAway==="home"?"홈":"원정"})${m.competition?` · ${m.competition}`:""}`;
+  }
+
+  function handlePrintLineup(){
+    const team = inferLineupTeam(lineup, players, teamMap, formFilter);
+    const body = buildLineupPrintBody({
+      teamName: team?.name, badge: team?.badge, formationName: formation,
+      matchInfo: activeMatch ? matchInfoText(activeMatch) : null,
+      slots, lineup, players, slotPositions, slotPosOverrides, bench,
+    });
+    openPrintWindow(`${team?.name||"베스트 11"} - ${formation}`, body);
+  }
+  function handleShareLineup(){
+    const team = inferLineupTeam(lineup, players, teamMap, formFilter);
+    const text = buildLineupShareText({
+      teamName: team?.name, formationName: formation,
+      matchInfo: activeMatch ? matchInfoText(activeMatch) : null,
+      slots, lineup, players, slotPosOverrides, bench,
+    });
+    shareOrCopy(`${team?.name||"베스트 11"} 라인업`, text);
+  }
+  function handlePrintMatch(m){
+    const mslots = FORMATIONS[m.formation]||[];
+    const team = inferLineupTeam(m.lineup||[], players, teamMap, "all");
+    const body = buildLineupPrintBody({
+      teamName: team?.name, badge: team?.badge, formationName: m.formation,
+      matchInfo: matchInfoText(m),
+      slots: mslots, lineup: m.lineup||[], players, slotPositions: m.slotPositions||{}, slotPosOverrides: m.slotPosOverrides||{}, bench: m.bench||[],
+    });
+    openPrintWindow(`vs ${m.opponent} - ${m.formation}`, body);
+  }
+  function handleShareMatch(m){
+    const mslots = FORMATIONS[m.formation]||[];
+    const team = inferLineupTeam(m.lineup||[], players, teamMap, "all");
+    const text = buildLineupShareText({
+      teamName: team?.name, formationName: m.formation, matchInfo: matchInfoText(m),
+      slots: mslots, lineup: m.lineup||[], players, slotPosOverrides: m.slotPosOverrides||{}, bench: m.bench||[],
+    });
+    shareOrCopy(`vs ${m.opponent} 라인업`, text);
+  }
+  function handlePrintPlayer(){
+    if(!display) return;
+    const team = display.tid ? teamMap[display.tid] : null;
+    openPrintWindow(`${display.name} 프로필`, buildPlayerPrintBody(display, team));
+  }
+
   const NAV=["선수","팀 관리","베스트 11","경기 일정"];
   const DTABS=["개요","능력치","성장 추적"];
 
@@ -956,6 +1190,7 @@ export default function App(){
                     ) : (
                       <>
                         <button onClick={startEdit} style={{background:"#1e3a5f",border:"1px solid #2a5580",color:"#88bbdd",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>✏ 편집</button>
+                        <button onClick={handlePrintPlayer} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#88bbdd",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>🖨 프린트</button>
                         <button onClick={delPlayer} style={{background:"#2a1010",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"7px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>삭제</button>
                       </>
                     )}
@@ -1139,6 +1374,8 @@ export default function App(){
               <button onClick={()=>setShowBench(v=>!v)} style={{background:showBench?"#1e6ba8":"transparent",border:showBench?"1px solid #2a8ad4":"1px solid #1e3a5f",color:showBench?"#fff":"#5577aa",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>🪑 벤치 {showBench?"끄기":"켜기"}</button>
               <button onClick={()=>setShowZones(v=>!v)} style={{background:showZones?"#1e6ba8":"transparent",border:showZones?"1px solid #2a8ad4":"1px solid #1e3a5f",color:showZones?"#fff":"#5577aa",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>🔢 18존 {showZones?"끄기":"켜기"}</button>
               <button onClick={()=>setShowChannels(v=>!v)} style={{background:showChannels?"#1e6ba8":"transparent",border:showChannels?"1px solid #2a8ad4":"1px solid #1e3a5f",color:showChannels?"#fff":"#5577aa",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>📐 5채널 {showChannels?"끄기":"켜기"}</button>
+              <button onClick={handlePrintLineup} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#88bbdd",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>🖨 프린트</button>
+              <button onClick={handleShareLineup} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#88bbdd",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>📤 공유</button>
             </div>
             {/* Formation notes */}
             {FORMATION_NOTES[formation] && (
@@ -1309,6 +1546,8 @@ export default function App(){
                     <span style={{fontSize:11,fontWeight:700,color:"#88bbdd"}}>{formationShort(m.formation)}</span>
                     <span style={{fontSize:14,fontWeight:900,color:avgO!=null?getColor(avgO):"#335577",fontFamily:"'Oswald',sans-serif"}}>{avgO!=null?`OVR ${avgO}`:"미배치"}</span>
                   </div>
+                  <button onClick={e=>{e.stopPropagation(); handlePrintMatch(m);}} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#88bbdd",borderRadius:5,padding:"5px 9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",flexShrink:0}}>🖨</button>
+                  <button onClick={e=>{e.stopPropagation(); handleShareMatch(m);}} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#88bbdd",borderRadius:5,padding:"5px 9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",flexShrink:0}}>📤</button>
                   <button onClick={e=>{e.stopPropagation(); delMatch(m.id);}} style={{background:"#2a1010",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"5px 9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",flexShrink:0}}>삭제</button>
                 </div>
               );
