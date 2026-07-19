@@ -437,17 +437,42 @@ function printDocShell(title, bodyHtml){
 }
 
 function openPrintWindow(title, bodyHtml){
-  const win = window.open("", "_blank");
-  if(!win){ alert("팝업이 차단되었습니다. 이 사이트의 팝업 차단을 해제해주세요."); return; }
-  win.document.open();
-  win.document.write(printDocShell(title, bodyHtml));
-  win.document.close();
-  win.focus();
+  // 모바일(폰/태블릿)에서 window.open 은 팝업 차단으로 막히므로,
+  // 화면에 보이지 않는 iframe에 인쇄 문서를 넣고 그 iframe을 인쇄한다.
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("aria-hidden", "true");
+  Object.assign(iframe.style, { position:"fixed", right:"0", bottom:"0", width:"0", height:"0", border:"0" });
+  document.body.appendChild(iframe);
+  const doc = iframe.contentWindow && iframe.contentWindow.document;
+  if(!doc){ console.error("[print] 인쇄용 iframe 문서를 열 수 없습니다."); alert("인쇄 준비에 실패했습니다."); iframe.remove(); return; }
+  doc.open();
+  doc.write(printDocShell(title, bodyHtml));
+  doc.close();
+  const cleanup = () => setTimeout(() => { try { iframe.remove(); } catch {} }, 1000);
+  const go = () => {
+    try { iframe.contentWindow.focus(); iframe.contentWindow.print(); }
+    catch(e){ console.error("[print] 인쇄 실패:", e); alert("인쇄 중 오류가 발생했습니다."); }
+    finally { cleanup(); }
+  };
+  // 사진 등 이미지 로딩이 끝난 뒤 인쇄 (안 끝나도 안전장치로 강제 실행)
+  const imgs = Array.from(doc.images || []);
+  if(imgs.length){
+    let pending = imgs.length;
+    const tick = () => { if(--pending <= 0) go(); };
+    imgs.forEach(im => { if(im.complete) tick(); else { im.onload = tick; im.onerror = tick; } });
+    setTimeout(go, 2000);
+  } else {
+    setTimeout(go, 200);
+  }
 }
 
 function pitchSvgForPrint(formationName, lineup, players, slotPositions, slotPosOverrides){
   const slots = FORMATIONS[formationName] || [];
   const {x0,x1,y0,y1} = PITCH_BOUNDS;
+  // 화면의 피치와 동일하게 잔디 줄무늬(초록)를 그린다
+  const stripes = [0,1,2,3,4,5,6].map(i =>
+    `<rect x="0" y="${i*23}" width="100" height="11.5" fill="${i%2===0?"#0a2010":"#0c2412"}" />`
+  ).join("");
   const markers = slots.map((slot,i) => {
     const pid = lineup[i];
     const p = players.find(x=>x.id===pid) || null;
@@ -458,18 +483,22 @@ function pitchSvgForPrint(formationName, lineup, players, slotPositions, slotPos
     const num = hasNum ? escapeHtml(String(p.number)) : "";
     const svgX = pos.x;
     const svgY = pos.y * 1.58;
-    return `<circle cx="${svgX}" cy="${svgY}" r="4.4" fill="#fff" stroke="#111" stroke-width="0.8" />`
-      + `<text x="${svgX}" y="${(svgY+1.4).toFixed(1)}" text-anchor="middle" font-size="4.2" font-weight="700" fill="#111">${num||"·"}</text>`
-      + `<text x="${svgX}" y="${(svgY+7.8).toFixed(1)}" text-anchor="middle" font-size="3.6" fill="#111">${label}</text>`;
+    // 배치된 선수는 OVR 색, 빈 슬롯은 회색 — 화면과 동일한 색 체계
+    const c = p ? getColor(ovr(p.attrs)) : "#5a7a9a";
+    const inner = num || (p ? "" : "·");
+    return `<circle cx="${svgX}" cy="${svgY}" r="4.6" fill="rgba(6,20,12,0.55)" stroke="${c}" stroke-width="1" />`
+      + `<text x="${svgX}" y="${(svgY+1.5).toFixed(1)}" text-anchor="middle" font-size="4.2" font-weight="700" fill="${c}">${inner}</text>`
+      + `<text x="${svgX}" y="${(svgY+8.2).toFixed(1)}" text-anchor="middle" font-size="3.6" font-weight="700" fill="#ffffff">${label}</text>`;
   }).join("");
 
-  return `<svg viewBox="0 0 100 158" width="300" height="474" style="max-width:100%;height:auto;">`
-    + `<rect x="0" y="0" width="100" height="158" fill="#fff" />`
-    + `<rect x="${x0}" y="${y0}" width="${x1-x0}" height="${y1-y0}" fill="none" stroke="#111" stroke-width="0.6" />`
-    + `<line x1="${x0}" y1="79" x2="${x1}" y2="79" stroke="#111" stroke-width="0.5" />`
-    + `<circle cx="50" cy="79" r="12" fill="none" stroke="#111" stroke-width="0.5" />`
-    + `<rect x="22" y="${y0}" width="56" height="20" fill="none" stroke="#111" stroke-width="0.5" />`
-    + `<rect x="22" y="135" width="56" height="20" fill="none" stroke="#111" stroke-width="0.5" />`
+  return `<svg viewBox="0 0 100 158" width="320" height="506" style="max-width:100%;height:auto;border-radius:8px;">`
+    + `<rect x="0" y="0" width="100" height="158" fill="#0a2010" />`
+    + stripes
+    + `<rect x="${x0}" y="${y0}" width="${x1-x0}" height="${y1-y0}" fill="none" stroke="#2e6b42" stroke-width="0.7" />`
+    + `<line x1="${x0}" y1="79" x2="${x1}" y2="79" stroke="#2e6b42" stroke-width="0.6" />`
+    + `<circle cx="50" cy="79" r="12" fill="none" stroke="#2e6b42" stroke-width="0.6" />`
+    + `<rect x="22" y="${y0}" width="56" height="20" fill="none" stroke="#2e6b42" stroke-width="0.6" />`
+    + `<rect x="22" y="135" width="56" height="20" fill="none" stroke="#2e6b42" stroke-width="0.6" />`
     + markers
     + `</svg>`;
 }
