@@ -69,6 +69,22 @@ function normalizeSchema(s){
   return { groups, abilities };
 }
 
+// 레이더 6축(고정) — 기본 능력치 key로 정의. 능력치를 삭제/변경해도 살아있는 key만 평균내어 깨지지 않는다.
+const RADAR = [
+  {label:"기술", keys:["dribbling","passing","technique","firstTouch"]},
+  {label:"신체", keys:["pace","acceleration","strength","stamina"]},
+  {label:"정신", keys:["vision","decisions","composure","leadership"]},
+  {label:"공격", keys:["finishing","longShots","crossing","heading"]},
+  {label:"수비", keys:["strength","jumping","decisions","aggression"]},
+  {label:"창의", keys:["vision","passing","technique","firstTouch"]},
+];
+// 축 값 = 축에 속한 (현재 스키마에 존재하는) 능력치들의 정규화 점수 평균. 단위·방향 반영, 없는 key는 건너뜀.
+function radarAxisScore(axis, attrs, abilities){
+  const map = {}; (abilities||[]).forEach(a => { map[a.key] = a; });
+  const ss = axis.keys.map(k => { const ab = map[k]; return ab ? abScore(ab, attrs?.[k]) : null; }).filter(s => s!=null);
+  return ss.length ? Math.round(ss.reduce((a,b)=>a+b,0)/ss.length) : 0;
+}
+
 const FORMATIONS = {
   // ── 11 vs 11 ──
   "11v11 · 4-3-3":[{p:"GK",x:50,y:87},{p:"RB",x:82,y:70},{p:"CB",x:62,y:73},{p:"CB",x:38,y:73},{p:"LB",x:18,y:70},{p:"CM",x:72,y:50},{p:"CDM",x:50,y:55},{p:"CM",x:28,y:50},{p:"RW",x:80,y:27},{p:"ST",x:50,y:20},{p:"LW",x:20,y:27}],
@@ -260,41 +276,25 @@ function Bar({ab, value, editing, onChange}){
   );
 }
 
-function Radar({attrs, prev, abilities, groups}){
+function Radar({attrs, prev, abilities}){
   const size=200, cx=100, cy=100, r=68;
-  const axes = (groups||[]).filter(g => abilities.some(a => a.group === g.id)); // 능력치가 있는 그룹만 축으로
-  const n = axes.length;
-  if(n < 3){
-    // 그룹(축)이 3개 미만이면 레이더 대신 막대로 표시
-    return (
-      <div style={{width:size,display:"flex",flexDirection:"column",gap:9,padding:"18px 4px"}}>
-        {axes.map(g=>{const v=groupScore(g.id,attrs,abilities); return (
-          <div key={g.id}>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#8899aa",marginBottom:3}}><span>{g.name}</span><span style={{color:getColor(v),fontWeight:700}}>{v}</span></div>
-            <div style={{height:6,background:"#0d1b2a",borderRadius:3,overflow:"hidden"}}><div style={{width:`${v}%`,height:"100%",background:getColor(v)}}/></div>
-          </div>
-        );})}
-        {n===0 && <div style={{fontSize:11,color:"#335577",textAlign:"center"}}>능력치가 없습니다</div>}
-      </div>
-    );
-  }
-  const ang = i => (Math.PI*2*i/n) - Math.PI/2;
+  const ang = i => (Math.PI*2*i/6) - Math.PI/2;
   const pt = (i,v) => ({x:cx+r*(v/99)*Math.cos(ang(i)), y:cy+r*(v/99)*Math.sin(ang(i))});
   const path = vs => vs.map((v,i)=>{const p=pt(i,v); return `${i===0?"M":"L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ")+"Z";
-  const vals = axes.map(g=>groupScore(g.id,attrs,abilities));
-  const pvals = prev ? axes.map(g=>groupScore(g.id,prev,abilities)) : null;
+  const vals = RADAR.map(ax=>radarAxisScore(ax,attrs,abilities));
+  const pvals = prev ? RADAR.map(ax=>radarAxisScore(ax,prev,abilities)) : null;
   return (
     <svg width={size} height={size} style={{overflow:"visible"}}>
       {[25,50,75,99].map(lvl => (
         <polygon key={lvl} fill="none" stroke="#1e3a5f" strokeWidth={0.7} opacity={0.5}
-          points={axes.map((_,i)=>{const p=pt(i,lvl); return `${p.x},${p.y}`;}).join(" ")} />
+          points={RADAR.map((_,i)=>{const p=pt(i,lvl); return `${p.x},${p.y}`;}).join(" ")} />
       ))}
-      {axes.map((_,i)=>{const p=pt(i,99); return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#1e3a5f" strokeWidth={0.7} opacity={0.4} />;  })}
+      {RADAR.map((_,i)=>{const p=pt(i,99); return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#1e3a5f" strokeWidth={0.7} opacity={0.4} />;  })}
       {pvals && <path d={path(pvals)} fill="rgba(255,152,0,0.1)" stroke="#ff9800" strokeWidth={1.2} strokeDasharray="4 3" />}
       <path d={path(vals)} fill="rgba(30,107,168,0.18)" stroke="#4499dd" strokeWidth={2} />
       {vals.map((v,i)=>{const p=pt(i,v); return <circle key={i} cx={p.x} cy={p.y} r={3.5} fill={getColor(v)} stroke="#030c14" strokeWidth={1} />;  })}
-      {axes.map((g,i)=>{const p=pt(i,99); const lx=cx+(p.x-cx)*1.24, ly=cy+(p.y-cy)*1.24;
-        return <text key={i} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="#7799bb" fontFamily="'Barlow Condensed',sans-serif" fontWeight={700}>{g.name}</text>;
+      {RADAR.map((ax,i)=>{const p=pt(i,99); const lx=cx+(p.x-cx)*1.24, ly=cy+(p.y-cy)*1.24;
+        return <text key={i} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="#7799bb" fontFamily="'Barlow Condensed',sans-serif" fontWeight={700}>{ax.label}</text>;
       })}
     </svg>
   );
@@ -598,20 +598,17 @@ function pitchSvgForPrint(formationName, lineup, players, slotPositions, slotPos
     + `</svg>`;
 }
 
-function radarSvgForPrint(attrs, abilities, groups){
-  const axList = (groups||[]).filter(g => (abilities||[]).some(a => a.group === g.id));
-  const n = axList.length;
-  if(n < 3) return ""; // 축이 3개 미만이면 레이더 생략
-  const size=200, cx=100, cy=100, r=68;
+function radarSvgForPrint(attrs, abilities){
+  const size=200, cx=100, cy=100, r=68, n=6;
   const ang = i => (Math.PI*2*i/n) - Math.PI/2;
   const pt = (i,v) => ({x:cx+r*(v/99)*Math.cos(ang(i)), y:cy+r*(v/99)*Math.sin(ang(i))});
   const path = vs => vs.map((v,i)=>{const p=pt(i,v); return `${i===0?"M":"L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ")+"Z";
-  const vals = axList.map(g=>groupScore(g.id, attrs, abilities));
+  const vals = RADAR.map(ax=>radarAxisScore(ax, attrs, abilities));
   const grid = [25,50,75,99].map(lvl =>
-    `<polygon fill="none" stroke="#999" stroke-width="0.6" points="${axList.map((_,i)=>{const p=pt(i,lvl); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ")}" />`
+    `<polygon fill="none" stroke="#999" stroke-width="0.6" points="${RADAR.map((_,i)=>{const p=pt(i,lvl); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ")}" />`
   ).join("");
-  const axes = axList.map((_,i)=>{const p=pt(i,99); return `<line x1="${cx}" y1="${cy}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}" stroke="#bbb" stroke-width="0.6" />`;}).join("");
-  const labels = axList.map((g,i)=>{const p=pt(i,99); const lx=cx+(p.x-cx)*1.24, ly=cy+(p.y-cy)*1.24; return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#333" font-weight="700">${escapeHtml(g.name)}</text>`;}).join("");
+  const axes = RADAR.map((_,i)=>{const p=pt(i,99); return `<line x1="${cx}" y1="${cy}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}" stroke="#bbb" stroke-width="0.6" />`;}).join("");
+  const labels = RADAR.map((ax,i)=>{const p=pt(i,99); const lx=cx+(p.x-cx)*1.24, ly=cy+(p.y-cy)*1.24; return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#333" font-weight="700">${escapeHtml(ax.label)}</text>`;}).join("");
   const dots = vals.map((v,i)=>{const p=pt(i,v); return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="#111" />`;}).join("");
   return `<svg width="${size}" height="${size}">${grid}${axes}<path d="${path(vals)}" fill="rgba(0,0,0,0.08)" stroke="#111" stroke-width="2" />${dots}${labels}</svg>`;
 }
