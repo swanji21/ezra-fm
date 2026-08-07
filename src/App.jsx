@@ -11,16 +11,63 @@ const ATTRS = {
   정신:[{k:"vision",l:"비전"},{k:"decisions",l:"판단력"},{k:"composure",l:"침착함"},{k:"leadership",l:"리더십"},{k:"workRate",l:"활동량"},{k:"teamwork",l:"팀워크"},{k:"aggression",l:"투지"}],
 };
 
-const ALL_ATTR_KEYS = Object.values(ATTRS).flat().map(a => a.k);
+// ── 사용자 편집 가능한 능력치 스키마 (그룹 + 능력치) ──
+// 위 ATTRS를 기본 스키마의 씨앗으로 사용한다. 각 능력치의 key는 불변(이름 바꿔도 유지) → 선수 데이터 안전.
+const DEFAULT_GROUP_META = [["기술","g_tech"],["신체","g_phys"],["정신","g_ment"]];
+const DEFAULT_GROUPS = DEFAULT_GROUP_META.map(([name,id]) => ({ id, name }));
+const DEFAULT_ABILITIES = DEFAULT_GROUP_META.flatMap(([name,id]) =>
+  ATTRS[name].map(a => ({ key:a.k, label:a.l, group:id, unit:"", direction:"high", min:0, max:100 }))
+);
+const DEFAULT_SCHEMA = { groups: DEFAULT_GROUPS, abilities: DEFAULT_ABILITIES };
+const ALL_ATTR_KEYS = DEFAULT_ABILITIES.map(a => a.key);
 
-const RADAR = [
-  {label:"기술", keys:["dribbling","passing","technique","firstTouch"]},
-  {label:"신체", keys:["pace","acceleration","strength","stamina"]},
-  {label:"정신", keys:["vision","decisions","composure","leadership"]},
-  {label:"공격", keys:["finishing","longShots","crossing","heading"]},
-  {label:"수비", keys:["strength","jumping","decisions","aggression"]},
-  {label:"창의", keys:["vision","passing","technique","firstTouch"]},
-];
+// 능력치 추가/편집 시 고를 수 있는 단위 프리셋 ("" = 0~100 점수형)
+const UNIT_PRESETS = ["", "회", "초", "분", "kg", "m", "cm", "점", "%", "골", "개"];
+
+// 값(raw) → 0~100 정규화 점수. 방향(높을수록/낮을수록 좋음)과 기준범위(min~max)를 반영. 값 없으면 null.
+function abScore(ab, raw){
+  if(raw===null || raw===undefined || raw==="") return null;
+  const n = Number(raw); if(Number.isNaN(n)) return null;
+  const min = Number(ab?.min ?? 0), max = Number(ab?.max ?? 100), dir = ab?.direction || "high";
+  if(max === min) return 50;
+  let s = (n - min) / (max - min) * 100;
+  if(dir === "low") s = 100 - s;
+  return Math.max(0, Math.min(100, Math.round(s)));
+}
+// 종합 점수(OVR) = 값이 있는 모든 능력치의 정규화 점수 평균
+function ovrFrom(attrs, abilities){
+  if(!abilities || !abilities.length) return 0;
+  const ss = abilities.map(ab => abScore(ab, attrs?.[ab.key])).filter(s => s!=null);
+  return ss.length ? Math.round(ss.reduce((a,b)=>a+b,0)/ss.length) : 0;
+}
+// 그룹 평균 정규화 점수 (레이더/개요용)
+function groupScore(groupId, attrs, abilities){
+  const abs = abilities.filter(a => a.group === groupId);
+  const ss = abs.map(ab => abScore(ab, attrs?.[ab.key])).filter(s => s!=null);
+  return ss.length ? Math.round(ss.reduce((a,b)=>a+b,0)/ss.length) : 0;
+}
+// 표시용 값 문자열: "12회", "8.5초", "65"
+function fmtVal(ab, raw){
+  if(raw===null || raw===undefined || raw==="") return "-";
+  return ab?.unit ? `${raw}${ab.unit}` : `${raw}`;
+}
+// 저장/불러온 스키마를 최신 형태로 보정(누락 필드 기본값 채움). 손상 시 기본 스키마로 폴백.
+function normalizeSchema(s){
+  if(!s || !Array.isArray(s.groups) || !Array.isArray(s.abilities) || !s.groups.length || !s.abilities.length) return DEFAULT_SCHEMA;
+  const groups = s.groups.map(g => ({ id:String(g.id), name:String(g.name ?? "그룹") }));
+  const gids = new Set(groups.map(g=>g.id));
+  const seen = new Set();
+  const abilities = s.abilities.filter(a=>a && a.key!=null && !seen.has(String(a.key)) && seen.add(String(a.key))).map(a => ({
+    key: String(a.key),
+    label: String(a.label ?? a.key),
+    group: gids.has(a.group) ? a.group : groups[0].id,
+    unit: typeof a.unit === "string" ? a.unit : "",
+    direction: a.direction === "low" ? "low" : "high",
+    min: Number.isFinite(Number(a.min)) ? Number(a.min) : 0,
+    max: Number.isFinite(Number(a.max)) ? Number(a.max) : 100,
+  }));
+  return { groups, abilities };
+}
 
 const FORMATIONS = {
   // ── 11 vs 11 ──
@@ -93,15 +140,6 @@ function mkAttrs(bias){
   ALL_ATTR_KEYS.forEach(k => { a[k] = rng(54,70); });
   if(bias) Object.entries(bias).forEach(([k,v]) => { a[k]=v; });
   return a;
-}
-
-function ovr(attrs){
-  const v = Object.values(attrs);
-  return v.length ? Math.round(v.reduce((s,x)=>s+x,0)/v.length) : 0;
-}
-
-function radarVal(axis, attrs){
-  return Math.round(axis.keys.reduce((s,k)=>s+(attrs[k]||0),0)/axis.keys.length);
 }
 
 function getColor(v){
@@ -196,63 +234,120 @@ function Avatar({photo,name,size,color,ovrVal,mode,number,pos}){
   );
 }
 
-function Bar({label,value,editing,onChange}){
+function Bar({ab, value, editing, onChange}){
+  const score = abScore(ab, value);                 // 0~100 정규화 점수 (값 없으면 null)
+  const col = score!=null ? getColor(score) : "#33507a";
   return (
     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
-      <span style={{width:74,fontSize:11,color:"#8899aa",fontFamily:"'Barlow Condensed',sans-serif",flexShrink:0}}>{label}</span>
+      <span style={{width:92,fontSize:11,color:"#8899aa",fontFamily:"'Barlow Condensed',sans-serif",flexShrink:0,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={ab.label}>
+        {ab.label}{ab.unit ? <span style={{color:"#4a6a8a"}}> ({ab.unit})</span> : null}
+      </span>
       {editing
-        ? <input type="number" min={1} max={99} value={value} onChange={e=>onChange(Math.max(1,Math.min(99,parseInt(e.target.value)||1)))} style={{...INPUT,width:48,padding:"2px 6px",fontWeight:700}} />
+        ? <>
+            <input type="number" step={ab.unit ? "any" : "1"} value={value===null||value===undefined?"":value} placeholder="-"
+              onChange={e=>onChange(e.target.value==="" ? "" : Number(e.target.value))}
+              style={{...INPUT,width:64,padding:"2px 6px",fontWeight:700}} />
+            {ab.direction==="low" && <span style={{fontSize:8,color:"#ff9800",flexShrink:0}} title="낮을수록 좋은 지표">↓좋음</span>}
+          </>
         : <>
             <div style={{flex:1,height:5,background:"#0d1b2a",borderRadius:3,overflow:"hidden"}}>
-              <div style={{width:`${value}%`,height:"100%",background:getColor(value),borderRadius:3}} />
+              <div style={{width:`${score??0}%`,height:"100%",background:col,borderRadius:3}} />
             </div>
-            <span style={{width:24,textAlign:"right",fontSize:12,fontWeight:700,color:getColor(value),fontFamily:"'Barlow Condensed',sans-serif"}}>{value}</span>
+            <span style={{minWidth:44,textAlign:"right",fontSize:12,fontWeight:700,color:col,fontFamily:"'Barlow Condensed',sans-serif"}}>{fmtVal(ab, value)}</span>
           </>
       }
     </div>
   );
 }
 
-function Radar({attrs,prev}){
+function Radar({attrs, prev, abilities, groups}){
   const size=200, cx=100, cy=100, r=68;
-  const ang = i => (Math.PI*2*i/6) - Math.PI/2;
+  const axes = (groups||[]).filter(g => abilities.some(a => a.group === g.id)); // 능력치가 있는 그룹만 축으로
+  const n = axes.length;
+  if(n < 3){
+    // 그룹(축)이 3개 미만이면 레이더 대신 막대로 표시
+    return (
+      <div style={{width:size,display:"flex",flexDirection:"column",gap:9,padding:"18px 4px"}}>
+        {axes.map(g=>{const v=groupScore(g.id,attrs,abilities); return (
+          <div key={g.id}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#8899aa",marginBottom:3}}><span>{g.name}</span><span style={{color:getColor(v),fontWeight:700}}>{v}</span></div>
+            <div style={{height:6,background:"#0d1b2a",borderRadius:3,overflow:"hidden"}}><div style={{width:`${v}%`,height:"100%",background:getColor(v)}}/></div>
+          </div>
+        );})}
+        {n===0 && <div style={{fontSize:11,color:"#335577",textAlign:"center"}}>능력치가 없습니다</div>}
+      </div>
+    );
+  }
+  const ang = i => (Math.PI*2*i/n) - Math.PI/2;
   const pt = (i,v) => ({x:cx+r*(v/99)*Math.cos(ang(i)), y:cy+r*(v/99)*Math.sin(ang(i))});
   const path = vs => vs.map((v,i)=>{const p=pt(i,v); return `${i===0?"M":"L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ")+"Z";
-  const vals = RADAR.map(ax=>radarVal(ax,attrs));
-  const pvals = prev ? RADAR.map(ax=>radarVal(ax,prev)) : null;
+  const vals = axes.map(g=>groupScore(g.id,attrs,abilities));
+  const pvals = prev ? axes.map(g=>groupScore(g.id,prev,abilities)) : null;
   return (
     <svg width={size} height={size} style={{overflow:"visible"}}>
       {[25,50,75,99].map(lvl => (
         <polygon key={lvl} fill="none" stroke="#1e3a5f" strokeWidth={0.7} opacity={0.5}
-          points={RADAR.map((_,i)=>{const p=pt(i,lvl); return `${p.x},${p.y}`;}).join(" ")} />
+          points={axes.map((_,i)=>{const p=pt(i,lvl); return `${p.x},${p.y}`;}).join(" ")} />
       ))}
-      {RADAR.map((_,i)=>{const p=pt(i,99); return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#1e3a5f" strokeWidth={0.7} opacity={0.4} />;  })}
+      {axes.map((_,i)=>{const p=pt(i,99); return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#1e3a5f" strokeWidth={0.7} opacity={0.4} />;  })}
       {pvals && <path d={path(pvals)} fill="rgba(255,152,0,0.1)" stroke="#ff9800" strokeWidth={1.2} strokeDasharray="4 3" />}
       <path d={path(vals)} fill="rgba(30,107,168,0.18)" stroke="#4499dd" strokeWidth={2} />
       {vals.map((v,i)=>{const p=pt(i,v); return <circle key={i} cx={p.x} cy={p.y} r={3.5} fill={getColor(v)} stroke="#030c14" strokeWidth={1} />;  })}
-      {RADAR.map((ax,i)=>{const p=pt(i,99); const lx=cx+(p.x-cx)*1.24, ly=cy+(p.y-cy)*1.24;
-        return <text key={i} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="#7799bb" fontFamily="'Barlow Condensed',sans-serif" fontWeight={700}>{ax.label}</text>;
+      {axes.map((g,i)=>{const p=pt(i,99); const lx=cx+(p.x-cx)*1.24, ly=cy+(p.y-cy)*1.24;
+        return <text key={i} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="#7799bb" fontFamily="'Barlow Condensed',sans-serif" fontWeight={700}>{g.name}</text>;
       })}
     </svg>
   );
 }
 
-function GrowthLine({history}){
+// 단일 능력치의 스냅샷별 값 변화를 단위에 맞게 그리는 미니 라인차트 (방향 반영: 개선=초록)
+function AbilityGrowthLine({ab, history}){
+  const pts = history.map(h => ({ label:h.label, raw: h.attrs?.[ab.key] }));
+  const nums = pts.map(p => (p.raw===""||p.raw==null||Number.isNaN(Number(p.raw))) ? null : Number(p.raw));
+  const valid = nums.filter(v => v!=null);
+  if(valid.length < 2) return null;
+  const W=320,H=64,pl=8,pr=44,pt2=10,pb=8, iW=W-pl-pr, iH=H-pt2-pb;
+  let mn=Math.min(...valid), mx=Math.max(...valid); if(mn===mx){mn-=1;mx+=1;}
+  const xf = i => pl + i*(iW/(nums.length-1));
+  const yf = v => pt2 + iH - ((v-mn)/(mx-mn))*iH;
+  const seg = [];
+  nums.forEach((v,i)=>{ if(v!=null) seg.push(`${seg.length?"L":"M"}${xf(i).toFixed(1)},${yf(v).toFixed(1)}`); });
+  const first = valid[0], last = valid[valid.length-1];
+  const improved = ab.direction==="low" ? last<first : last>first;
+  const same = last===first;
+  const trendCol = same ? "#8899aa" : improved ? "#00e676" : "#ef5350";
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid #0d2340"}}>
+      <div style={{width:82,flexShrink:0}}>
+        <div style={{fontSize:12,fontWeight:700,color:"#e0f0ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={ab.label}>{ab.label}</div>
+        <div style={{fontSize:9,color:"#4a6a8a"}}>{ab.direction==="low"?"낮을수록↑":"높을수록↑"}</div>
+      </div>
+      <svg width={W} height={H} style={{flex:1,maxWidth:W}}>
+        <path d={seg.join(" ")} fill="none" stroke="#4499dd" strokeWidth={2} strokeLinejoin="round" />
+        {nums.map((v,i)=> v==null ? null : <circle key={i} cx={xf(i)} cy={yf(v)} r={3} fill="#4499dd" stroke="#030c14" strokeWidth={1} />)}
+        <text x={xf(nums.length-1)+6} y={yf(last)+3} fontSize={11} fontWeight={700} fill={trendCol} fontFamily="'Barlow Condensed',sans-serif">{fmtVal(ab,last)}</text>
+      </svg>
+    </div>
+  );
+}
+
+function GrowthLine({history, abilities}){
   if(!history||history.length<2) return <p style={{color:"#335577",fontSize:12}}>스냅샷 2개 이상 필요</p>;
   const W=360,H=100,pl=32,pr=10,pt2=14,pb=26;
   const iW=W-pl-pr, iH=H-pt2-pb;
-  const ovrs = history.map(h=>ovr(h.attrs));
+  const ov = h => ovrFrom(h.attrs, abilities);
+  const ovrs = history.map(ov);
   const mn=Math.max(0,Math.min(...ovrs)-5), mx=Math.min(99,Math.max(...ovrs)+5);
   const xf = i => pl + i*(iW/(history.length-1));
-  const yf = v => pt2 + iH - ((v-mn)/(mx-mn))*iH;
-  const d = history.map((h,i)=>`${i===0?"M":"L"}${xf(i).toFixed(1)},${yf(ovr(h.attrs)).toFixed(1)}`).join(" ");
+  const yf = v => pt2 + iH - ((v-mn)/(mx-mn||1))*iH;
+  const d = history.map((h,i)=>`${i===0?"M":"L"}${xf(i).toFixed(1)},${yf(ov(h)).toFixed(1)}`).join(" ");
   const area = d+` L${xf(history.length-1).toFixed(1)},${(pt2+iH).toFixed(1)} L${pl},${(pt2+iH).toFixed(1)} Z`;
   return (
     <svg width={W} height={H} style={{width:"100%",maxWidth:W}}>
       {[0,0.5,1].map(t=>{const y=pt2+iH*t; return <line key={t} x1={pl} y1={y} x2={pl+iW} y2={y} stroke="#1e3a5f" strokeWidth={0.6} strokeDasharray="4 3" />;  })}
       <path d={area} fill="rgba(30,107,168,0.1)" />
       <path d={d} fill="none" stroke="#4499dd" strokeWidth={2} strokeLinejoin="round" />
-      {history.map((h,i)=>{const v=ovr(h.attrs),x=xf(i),y=yf(v); return (
+      {history.map((h,i)=>{const v=ov(h),x=xf(i),y=yf(v); return (
         <g key={i}>
           <circle cx={x} cy={y} r={4} fill={getColor(v)} stroke="#030c14" strokeWidth={1.5} />
           <text x={x} y={y-9} textAnchor="middle" fontSize={9} fill={getColor(v)} fontFamily="'Barlow Condensed',sans-serif" fontWeight={700}>{v}</text>
@@ -263,7 +358,7 @@ function GrowthLine({history}){
   );
 }
 
-function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd,slotPosOverrides,showZones,showChannels,cardMode}){
+function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd,slotPosOverrides,showZones,showChannels,cardMode,abilities}){
   const slots = FORMATIONS[formation]||[];
   const pitchRef = useRef();
   const dragging = useRef(null);
@@ -372,7 +467,7 @@ function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd,
       </svg>
       {slots.map((slot,i)=>{
         const pid=lineup[i], pl=players.find(x=>x.id===pid)||null;
-        const v=pl?ovr(pl.attrs):null, isSel=selSlot===i;
+        const v=pl?ovrFrom(pl.attrs, abilities):null, isSel=selSlot===i;
         const c=v?getColor(v):"#2a4a6a";
         const pos = (slotPositions&&slotPositions[i]) || slot;
         const curPos = (slotPosOverrides&&slotPosOverrides[i]) || slot.p;
@@ -466,7 +561,7 @@ function openPrintWindow(title, bodyHtml){
   }
 }
 
-function pitchSvgForPrint(formationName, lineup, players, slotPositions, slotPosOverrides){
+function pitchSvgForPrint(formationName, lineup, players, slotPositions, slotPosOverrides, abilities){
   const slots = FORMATIONS[formationName] || [];
   const {x0,x1,y0,y1} = PITCH_BOUNDS;
   // 화면의 피치와 동일하게 잔디 줄무늬(초록)를 그린다
@@ -484,7 +579,7 @@ function pitchSvgForPrint(formationName, lineup, players, slotPositions, slotPos
     const svgX = pos.x;
     const svgY = pos.y * 1.58;
     // 배치된 선수는 OVR 색, 빈 슬롯은 회색 — 화면과 동일한 색 체계
-    const c = p ? getColor(ovr(p.attrs)) : "#5a7a9a";
+    const c = p ? getColor(ovrFrom(p.attrs, abilities)) : "#5a7a9a";
     const inner = num || (p ? "" : "·");
     return `<circle cx="${svgX}" cy="${svgY}" r="4.6" fill="rgba(6,20,12,0.55)" stroke="${c}" stroke-width="1" />`
       + `<text x="${svgX}" y="${(svgY+1.5).toFixed(1)}" text-anchor="middle" font-size="4.2" font-weight="700" fill="${c}">${inner}</text>`
@@ -503,47 +598,67 @@ function pitchSvgForPrint(formationName, lineup, players, slotPositions, slotPos
     + `</svg>`;
 }
 
-function radarSvgForPrint(attrs){
+function radarSvgForPrint(attrs, abilities, groups){
+  const axList = (groups||[]).filter(g => (abilities||[]).some(a => a.group === g.id));
+  const n = axList.length;
+  if(n < 3) return ""; // 축이 3개 미만이면 레이더 생략
   const size=200, cx=100, cy=100, r=68;
-  const ang = i => (Math.PI*2*i/6) - Math.PI/2;
+  const ang = i => (Math.PI*2*i/n) - Math.PI/2;
   const pt = (i,v) => ({x:cx+r*(v/99)*Math.cos(ang(i)), y:cy+r*(v/99)*Math.sin(ang(i))});
   const path = vs => vs.map((v,i)=>{const p=pt(i,v); return `${i===0?"M":"L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ")+"Z";
-  const vals = RADAR.map(ax=>radarVal(ax,attrs));
+  const vals = axList.map(g=>groupScore(g.id, attrs, abilities));
   const grid = [25,50,75,99].map(lvl =>
-    `<polygon fill="none" stroke="#999" stroke-width="0.6" points="${RADAR.map((_,i)=>{const p=pt(i,lvl); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ")}" />`
+    `<polygon fill="none" stroke="#999" stroke-width="0.6" points="${axList.map((_,i)=>{const p=pt(i,lvl); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ")}" />`
   ).join("");
-  const axes = RADAR.map((_,i)=>{const p=pt(i,99); return `<line x1="${cx}" y1="${cy}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}" stroke="#bbb" stroke-width="0.6" />`;}).join("");
-  const labels = RADAR.map((ax,i)=>{const p=pt(i,99); const lx=cx+(p.x-cx)*1.24, ly=cy+(p.y-cy)*1.24; return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#333" font-weight="700">${ax.label}</text>`;}).join("");
+  const axes = axList.map((_,i)=>{const p=pt(i,99); return `<line x1="${cx}" y1="${cy}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}" stroke="#bbb" stroke-width="0.6" />`;}).join("");
+  const labels = axList.map((g,i)=>{const p=pt(i,99); const lx=cx+(p.x-cx)*1.24, ly=cy+(p.y-cy)*1.24; return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#333" font-weight="700">${escapeHtml(g.name)}</text>`;}).join("");
   const dots = vals.map((v,i)=>{const p=pt(i,v); return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="#111" />`;}).join("");
   return `<svg width="${size}" height="${size}">${grid}${axes}<path d="${path(vals)}" fill="rgba(0,0,0,0.08)" stroke="#111" stroke-width="2" />${dots}${labels}</svg>`;
 }
 
-function buildLineupTableRows(slots, lineup, players, slotPosOverrides){
+// 선수 프린트용 능력치 표(그룹별, 단위 포함)
+function buildAbilityPrintTable(attrs, abilities, groups){
+  const parts = (groups||[]).map(g => {
+    const abs = (abilities||[]).filter(a => a.group === g.id);
+    if(!abs.length) return "";
+    const rows = abs.map(ab => {
+      const raw = attrs?.[ab.key];
+      const sc = abScore(ab, raw);
+      return `<tr><td>${escapeHtml(ab.label)}${ab.unit?` <span style="color:#888">(${escapeHtml(ab.unit)})</span>`:""}</td>`
+        + `<td style="text-align:right;font-weight:700">${escapeHtml(fmtVal(ab, raw))}</td>`
+        + `<td style="text-align:right;color:#555">${sc!=null?sc:"-"}</td></tr>`;
+    }).join("");
+    return `<h2>${escapeHtml(g.name)}</h2><table><thead><tr><th>능력치</th><th style="text-align:right">값</th><th style="text-align:right">점수</th></tr></thead><tbody>${rows}</tbody></table>`;
+  });
+  return parts.join("");
+}
+
+function buildLineupTableRows(slots, lineup, players, slotPosOverrides, abilities){
   return slots.map((slot,i) => {
     const pid = lineup[i];
     const p = players.find(x=>x.id===pid) || null;
     const curPos = (slotPosOverrides && slotPosOverrides[i]) || slot.p;
-    const v = p ? ovr(p.attrs) : null;
+    const v = p ? ovrFrom(p.attrs, abilities) : null;
     const num = p && p.number!==undefined && p.number!==null && p.number!=="" ? escapeHtml(String(p.number)) : "-";
     return `<tr><td>${escapeHtml(curPos)}</td><td>${p?escapeHtml(p.name):"-"}</td><td>${num}</td><td>${p?escapeHtml(p.club||"-"):"-"}</td><td>${v!=null?v:"-"}</td></tr>`;
   }).join("");
 }
 
-function buildBenchTableRows(bench, players){
+function buildBenchTableRows(bench, players, abilities){
   return (bench||[]).map(pid => {
     const p = players.find(x=>x.id===pid);
     if(!p) return "";
     const num = p.number!==undefined && p.number!==null && p.number!=="" ? escapeHtml(String(p.number)) : "-";
-    return `<tr><td>${escapeHtml(p.pos)}</td><td>${escapeHtml(p.name)}</td><td>${num}</td><td>${escapeHtml(p.club||"-")}</td><td>${ovr(p.attrs)}</td></tr>`;
+    return `<tr><td>${escapeHtml(p.pos)}</td><td>${escapeHtml(p.name)}</td><td>${num}</td><td>${escapeHtml(p.club||"-")}</td><td>${ovrFrom(p.attrs, abilities)}</td></tr>`;
   }).join("");
 }
 
-function buildLineupPrintBody({teamName,badge,formationName,matchInfo,slots,lineup,players,slotPositions,slotPosOverrides,bench}){
-  const pitch = pitchSvgForPrint(formationName, lineup, players, slotPositions, slotPosOverrides);
-  const rows = buildLineupTableRows(slots, lineup, players, slotPosOverrides);
-  const benchRows = buildBenchTableRows(bench, players);
+function buildLineupPrintBody({teamName,badge,formationName,matchInfo,slots,lineup,players,slotPositions,slotPosOverrides,bench,abilities}){
+  const pitch = pitchSvgForPrint(formationName, lineup, players, slotPositions, slotPosOverrides, abilities);
+  const rows = buildLineupTableRows(slots, lineup, players, slotPosOverrides, abilities);
+  const benchRows = buildBenchTableRows(bench, players, abilities);
   const filled = lineup.filter(Boolean);
-  const avg = filled.length ? Math.round(filled.map(pid=>ovr(players.find(p=>p.id===pid)?.attrs||{})).reduce((a,b)=>a+b,0)/filled.length) : null;
+  const avg = filled.length ? Math.round(filled.map(pid=>ovrFrom(players.find(p=>p.id===pid)?.attrs||{}, abilities)).reduce((a,b)=>a+b,0)/filled.length) : null;
   return `<h1>${badge?escapeHtml(badge)+" ":""}${escapeHtml(teamName||"베스트 11")}</h1>`
     + `<h2 style="margin-top:0;">포메이션: ${escapeHtml(formationName)}${avg!=null?` · 평균 OVR ${avg}`:""}</h2>`
     + (matchInfo ? `<div class="meta">${escapeHtml(matchInfo)}</div>` : "")
@@ -553,9 +668,9 @@ function buildLineupPrintBody({teamName,badge,formationName,matchInfo,slots,line
     + (bench && bench.length ? `<h2>벤치</h2><table><thead><tr><th>포지션</th><th>이름</th><th>등번호</th><th>구단</th><th>OVR</th></tr></thead><tbody>${benchRows}</tbody></table>` : "");
 }
 
-function buildPlayerPrintBody(p, team){
-  const v = ovr(p.attrs);
-  const radar = radarSvgForPrint(p.attrs);
+function buildPlayerPrintBody(p, team, abilities, groups){
+  const v = ovrFrom(p.attrs, abilities);
+  const radar = radarSvgForPrint(p.attrs, abilities, groups);
   const num = p.number!==undefined && p.number!==null && p.number!=="" ? escapeHtml(String(p.number)) : "-";
   const photo = p.photo
     ? `<img src="${p.photo}" style="width:96px;height:96px;border-radius:50%;object-fit:cover;border:2px solid #111;" />`
@@ -567,8 +682,8 @@ function buildPlayerPrintBody(p, team){
     + `<div class="meta">등번호 ${num} · ${escapeHtml(p.pos)}${team?` · ${escapeHtml(team.badge||"")} ${escapeHtml(team.name||"")}`:""}</div>`
     + `<div class="meta">나이 ${p.age??"-"} · 구단 ${escapeHtml(p.club||"-")} · OVR ${v}</div>`
     + `</div></div>`
-    + `<h2>능력치 레이더</h2>`
-    + `<div class="pitch-wrap">${radar}</div>`;
+    + (radar ? `<h2>능력치 레이더</h2><div class="pitch-wrap">${radar}</div>` : "")
+    + buildAbilityPrintTable(p.attrs, abilities, groups);
 }
 
 function buildLineupShareText({teamName,formationName,matchInfo,slots,lineup,players,slotPosOverrides,bench}){
@@ -629,7 +744,7 @@ export default function App(){
   const [players, setPlayers] = useState(INIT_PLAYERS);
   const [sel, setSel] = useState(INIT_PLAYERS[0]);
   const [dtab, setDtab] = useState("개요");
-  const [aCat, setACat] = useState("기술");
+  const [aCat, setACat] = useState("g_tech"); // 능력치 탭에서 선택된 그룹 id
   const [editing, setEditing] = useState(false);
   const [editD, setEditD] = useState(null);
   const [adding, setAdding] = useState(false);
@@ -653,6 +768,8 @@ export default function App(){
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarViewMode, setSidebarViewMode] = useState("all"); // "all" | "position"
   const [cardMode, setCardMode] = useState("stats"); // "stats" | "number" | "position"
+  const [schema, setSchema] = useState(DEFAULT_SCHEMA); // 사용자 편집 가능한 능력치 스키마
+  const [attrMgrOpen, setAttrMgrOpen] = useState(false); // 능력치 관리 모달
 
   const [matches, setMatches] = useState([]);
   const [activeMatchId, setActiveMatchId] = useState(null);
@@ -672,10 +789,12 @@ export default function App(){
     const sp = localStorage.getItem("ezra-players");
     const st = localStorage.getItem("ezra-teams");
     const sm = localStorage.getItem("ezra-matches");
+    const ss = localStorage.getItem("ezra-schema");
     const p = sp ? JSON.parse(sp) : INIT_PLAYERS;
     const t = st ? JSON.parse(st) : INIT_TEAMS;
     const m = sm ? JSON.parse(sm) : [];
     setPlayers(p); setSel(p[0]||null); setTeams(t); setMatches(m);
+    setSchema(ss ? normalizeSchema(JSON.parse(ss)) : DEFAULT_SCHEMA);
   }
 
   // 이 기기가 마지막으로 동기화한 클라우드 버전의 시각(uid별로 저장) — 기기 간 자동 동기화 기준점
@@ -721,18 +840,19 @@ export default function App(){
             const cloudTeams = data.teams || [];
             const cloudMatches = data.matches || [];
             setPlayers(cloudPlayers); setSel(cloudPlayers[0]||null); setTeams(cloudTeams); setMatches(cloudMatches);
+            setSchema(data.attrSchema ? normalizeSchema(data.attrSchema) : DEFAULT_SCHEMA);
             setLocalSyncedAt(user.uid, cloudUpdatedAt);
             setCloudReady(true);
           } else {
             // 이 기기에 클라우드보다 최신인(아직 못 올라간) 데이터가 있음 → 밀어올림
             const ts = Date.now();
-            await setDoc(ref, { players, teams, matches, updatedAt: ts });
+            await setDoc(ref, { players, teams, matches, attrSchema: schema, updatedAt: ts });
             setLocalSyncedAt(user.uid, ts);
             setCloudReady(true);
           }
         } else {
           const ts = Date.now();
-          await setDoc(ref, { players, teams, matches, updatedAt: ts });
+          await setDoc(ref, { players, teams, matches, attrSchema: schema, updatedAt: ts });
           setLocalSyncedAt(user.uid, ts);
           setCloudReady(true);
         }
@@ -760,14 +880,19 @@ export default function App(){
     localStorage.setItem("ezra-matches", JSON.stringify(matches));
   }, [matches, user]);
 
+  useEffect(() => {
+    if(user) return;
+    localStorage.setItem("ezra-schema", JSON.stringify(schema));
+  }, [schema, user]);
+
   // 로그인 상태: 변경될 때마다 자동으로 Firebase에 저장하고, 이 기기의 동기화 시각도 갱신
   useEffect(() => {
     if(!user || !cloudReady) return;
     const ts = Date.now();
-    setDoc(doc(db, "users", user.uid), { players, teams, matches, updatedAt: ts }, { merge: true })
+    setDoc(doc(db, "users", user.uid), { players, teams, matches, attrSchema: schema, updatedAt: ts }, { merge: true })
       .then(() => setLocalSyncedAt(user.uid, ts))
       .catch(e => { console.error("클라우드 저장 실패", e); setCloudError(e.code || e.message || String(e)); });
-  }, [players, teams, matches, user, cloudReady]);
+  }, [players, teams, matches, schema, user, cloudReady]);
 
   async function handleLogin(){
     try { await signInWithPopup(auth, googleProvider); }
@@ -780,7 +905,36 @@ export default function App(){
     setRetryTick(t => t+1);
   }
 
+  // ── 능력치 스키마 편집 (그룹/능력치 CRUD) ──
+  // 선수 데이터(attrs)는 절대 건드리지 않는다. 능력치 key는 불변이라 이름 변경/삭제해도 값이 안전하게 유지된다.
+  function updateSchema(mut){ setSchema(s => normalizeSchema(mut(structuredClone(s)))); }
+  function addGroup(){ const id="g_"+Date.now(); updateSchema(s=>{ s.groups.push({id,name:"새 그룹"}); return s; }); setACat(id); }
+  function renameGroup(id,name){ updateSchema(s=>{ const g=s.groups.find(x=>x.id===id); if(g) g.name=name; return s; }); }
+  function deleteGroup(id){
+    if(schema.groups.length<=1){ alert("그룹은 최소 1개 필요합니다."); return; }
+    const rest = schema.groups.filter(g=>g.id!==id);
+    updateSchema(s=>{
+      s.groups = s.groups.filter(g=>g.id!==id);
+      const fb = s.groups[0]?.id;
+      s.abilities.forEach(a=>{ if(a.group===id) a.group=fb; }); // 소속 능력치는 삭제하지 않고 첫 그룹으로 이동
+      return s;
+    });
+    if(aCat===id) setACat(rest[0]?.id || "");
+  }
+  function addAbility(groupId){ const key="a_"+Date.now()+"_"+Math.floor(Math.random()*1000); updateSchema(s=>{ s.abilities.push({key,label:"새 능력치",group:groupId,unit:"",direction:"high",min:0,max:100}); return s; }); }
+  function updateAbility(key, patch){ updateSchema(s=>{ const a=s.abilities.find(x=>x.key===key); if(a) Object.assign(a, patch); return s; }); }
+  function deleteAbility(key){ updateSchema(s=>{ s.abilities = s.abilities.filter(a=>a.key!==key); return s; }); } // attrs[key]는 보존
+
   const teamMap = useMemo(()=>Object.fromEntries(teams.map(t=>[t.id,t])),[teams]);
+  // 능력치 스키마 파생값 + OVR(정규화 평균) 로컬 헬퍼 — 컴포넌트 내 모든 ovr() 호출이 이걸 사용
+  const groups = schema.groups;
+  const abilities = schema.abilities;
+  const ovr = (attrs) => ovrFrom(attrs, abilities);
+  const abilitiesByGroup = useMemo(() => {
+    const m = {};
+    groups.forEach(g => { m[g.id] = abilities.filter(a => a.group === g.id); });
+    return m;
+  }, [schema]);
   const display = editing ? editD : sel;
   const ovrVal = display ? ovr(display.attrs) : 0;
   const prevSnap = sel?.history?.length>=2 ? sel.history[sel.history.length-2] : null;
@@ -813,7 +967,8 @@ export default function App(){
   function delPlayer(){ const r=players.filter(p=>p.id!==sel.id); setPlayers(r); setSel(r[0]||null); }
 
   function startAdd(){
-    setNewP({id:Date.now(),name:"",pos:"ST",age:20,club:"",number:"",heightCm:"",weightKg:"",size:"",tid:teams[0]?.id||"",photo:null,attrs:Object.fromEntries(ALL_ATTR_KEYS.map(k=>[k,65])),history:[]});
+    const seedAttrs = Object.fromEntries(abilities.map(a => [a.key, a.unit ? "" : 65]));
+    setNewP({id:Date.now(),name:"",pos:"ST",age:20,club:"",number:"",heightCm:"",weightKg:"",size:"",tid:teams[0]?.id||"",photo:null,attrs:seedAttrs,history:[]});
     setAdding(true);
   }
   function saveNew(){
@@ -913,7 +1068,7 @@ export default function App(){
     const body = buildLineupPrintBody({
       teamName: team?.name, badge: team?.badge, formationName: formation,
       matchInfo: activeMatch ? matchInfoText(activeMatch) : null,
-      slots, lineup, players, slotPositions, slotPosOverrides, bench,
+      slots, lineup, players, slotPositions, slotPosOverrides, bench, abilities,
     });
     openPrintWindow(`${team?.name||"베스트 11"} - ${formation}`, body);
   }
@@ -932,7 +1087,7 @@ export default function App(){
     const body = buildLineupPrintBody({
       teamName: team?.name, badge: team?.badge, formationName: m.formation,
       matchInfo: matchInfoText(m),
-      slots: mslots, lineup: m.lineup||[], players, slotPositions: m.slotPositions||{}, slotPosOverrides: m.slotPosOverrides||{}, bench: m.bench||[],
+      slots: mslots, lineup: m.lineup||[], players, slotPositions: m.slotPositions||{}, slotPosOverrides: m.slotPosOverrides||{}, bench: m.bench||[], abilities,
     });
     openPrintWindow(`vs ${m.opponent} - ${m.formation}`, body);
   }
@@ -948,7 +1103,7 @@ export default function App(){
   function handlePrintPlayer(){
     if(!display) return;
     const team = display.tid ? teamMap[display.tid] : null;
-    openPrintWindow(`${display.name} 프로필`, buildPlayerPrintBody(display, team));
+    openPrintWindow(`${display.name} 프로필`, buildPlayerPrintBody(display, team, abilities, groups));
   }
 
   const NAV=["선수","팀 관리","베스트 11","경기 일정"];
@@ -1039,6 +1194,7 @@ export default function App(){
           <button onClick={()=>setCardMode("number")} style={{background:cardMode==="number"?"#1e6ba8":"transparent",border:"none",color:cardMode==="number"?"#fff":"#5577aa",borderRadius:4,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>등번호</button>
           <button onClick={()=>setCardMode("position")} style={{background:cardMode==="position"?"#1e6ba8":"transparent",border:"none",color:cardMode==="position"?"#fff":"#5577aa",borderRadius:4,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>포지션</button>
         </div>
+        <button onClick={()=>setAttrMgrOpen(true)} title="능력치 항목 관리" style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"5px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>⚙ 능력치</button>
         <span className="player-count-label" style={{marginLeft:"auto",fontSize:10,color:"#335577"}}>선수 {players.length}명 · 팀 {teams.length}개</span>
 
         {!authLoading && (user ? (
@@ -1151,11 +1307,11 @@ export default function App(){
                     </select>
                   </div>
                 </div>
-                {Object.entries(ATTRS).map(([cat,atrs])=>(
-                  <div key={cat} style={{marginBottom:12}}>
-                    <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:5,borderBottom:"1px solid #0d2340",paddingBottom:3}}>{cat.toUpperCase()}</div>
-                    {atrs.map(({k,l})=>(
-                      <Bar key={k} label={l} value={newP.attrs[k]} editing={true} onChange={v=>setNewP(p=>({...p,attrs:{...p.attrs,[k]:v}}))} />
+                {groups.map(g=>(
+                  <div key={g.id} style={{marginBottom:12}}>
+                    <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:5,borderBottom:"1px solid #0d2340",paddingBottom:3}}>{g.name}</div>
+                    {(abilitiesByGroup[g.id]||[]).map(ab=>(
+                      <Bar key={ab.key} ab={ab} value={newP.attrs[ab.key]} editing={true} onChange={v=>setNewP(p=>({...p,attrs:{...p.attrs,[ab.key]:v}}))} />
                     ))}
                   </div>
                 ))}
@@ -1237,20 +1393,22 @@ export default function App(){
                   <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
                     <div style={{...cardStyle,display:"flex",flexDirection:"column",alignItems:"center",flex:"0 0 224px"}}>
                       <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:6}}>레이더 차트</div>
-                      <Radar attrs={display.attrs} prev={prevSnap?.attrs} />
+                      <Radar attrs={display.attrs} prev={prevSnap?.attrs} abilities={abilities} groups={groups} />
                       {prevSnap && <div style={{fontSize:9,color:"#ff9800",marginTop:3}}>── 이전 스냅샷 비교</div>}
                     </div>
                     <div style={{flex:1,minWidth:160,display:"flex",flexDirection:"column",gap:8}}>
-                      {Object.entries(ATTRS).map(([cat,atrs])=>{
-                        const avg=Math.round(atrs.reduce((s,{k})=>s+(display.attrs[k]||0),0)/atrs.length);
-                        const top=[...atrs].sort((a,b)=>(display.attrs[b.k]||0)-(display.attrs[a.k]||0)).slice(0,3);
+                      {groups.map(g=>{
+                        const atrs=abilitiesByGroup[g.id]||[];
+                        if(!atrs.length) return null;
+                        const avg=groupScore(g.id, display.attrs, abilities);
+                        const top=[...atrs].map(ab=>({ab,sc:abScore(ab,display.attrs[ab.key])})).filter(x=>x.sc!=null).sort((a,b)=>b.sc-a.sc).slice(0,3);
                         return (
-                          <div key={cat} style={cardStyle}>
+                          <div key={g.id} style={cardStyle}>
                             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
                               <div style={{fontSize:20,fontWeight:900,color:getColor(avg),fontFamily:"'Oswald',sans-serif",width:30}}>{avg}</div>
                               <div style={{flex:1}}>
-                                <div style={{fontSize:11,fontWeight:700,color:"#8899aa",letterSpacing:1}}>{cat} 평균</div>
-                                <div style={{fontSize:9,color:"#335577"}}>TOP: {top.map(a=>`${a.l} ${display.attrs[a.k]}`).join(" · ")}</div>
+                                <div style={{fontSize:11,fontWeight:700,color:"#8899aa",letterSpacing:1}}>{g.name} 평균</div>
+                                <div style={{fontSize:9,color:"#335577"}}>TOP: {top.map(({ab})=>`${ab.label} ${fmtVal(ab,display.attrs[ab.key])}`).join(" · ")||"-"}</div>
                               </div>
                             </div>
                             <div style={{height:4,background:"#0d1b2a",borderRadius:3,overflow:"hidden"}}>
@@ -1263,21 +1421,27 @@ export default function App(){
                   </div>
                 )}
 
-                {dtab==="능력치" && (
+                {dtab==="능력치" && (()=>{
+                  const curGroup = groups.find(g=>g.id===aCat) || groups[0];
+                  const curAbs = curGroup ? (abilitiesByGroup[curGroup.id]||[]) : [];
+                  return (
                   <div>
-                    <div style={{display:"flex",gap:3,marginBottom:10}}>
-                      {Object.keys(ATTRS).map(cat=>(
-                        <button key={cat} onClick={()=>setACat(cat)} style={{background:aCat===cat?"#1e3a5f":"transparent",border:aCat===cat?"1px solid #2a5580":"1px solid #0d2340",color:aCat===cat?"#88bbdd":"#4477aa",borderRadius:5,padding:"4px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>{cat}</button>
+                    <div style={{display:"flex",gap:3,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
+                      {groups.map(g=>(
+                        <button key={g.id} onClick={()=>setACat(g.id)} style={{background:curGroup?.id===g.id?"#1e3a5f":"transparent",border:curGroup?.id===g.id?"1px solid #2a5580":"1px solid #0d2340",color:curGroup?.id===g.id?"#88bbdd":"#4477aa",borderRadius:5,padding:"4px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>{g.name}</button>
                       ))}
+                      <button onClick={()=>setAttrMgrOpen(true)} title="능력치 항목 관리" style={{marginLeft:"auto",background:"transparent",border:"1px solid #0d2340",color:"#5577aa",borderRadius:5,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>⚙ 능력치 관리</button>
                     </div>
                     <div style={cardStyle}>
-                      <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:9}}>{aCat.toUpperCase()}</div>
-                      {ATTRS[aCat].map(({k,l})=>(
-                        <Bar key={k} label={l} value={editing?editD.attrs[k]:display.attrs[k]} editing={editing} onChange={v=>setEditD(d=>({...d,attrs:{...d.attrs,[k]:v}}))} />
+                      <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:9}}>{curGroup?.name||""}</div>
+                      {curAbs.length===0 && <div style={{fontSize:12,color:"#335577"}}>이 그룹에 능력치가 없습니다. ⚙ 능력치 관리에서 추가하세요.</div>}
+                      {curAbs.map(ab=>(
+                        <Bar key={ab.key} ab={ab} value={editing?editD.attrs[ab.key]:display.attrs[ab.key]} editing={editing} onChange={v=>setEditD(d=>({...d,attrs:{...d.attrs,[ab.key]:v}}))} />
                       ))}
                     </div>
                   </div>
-                )}
+                  );
+                })()}
 
                 {dtab==="성장 추적" && (
                   <div>
@@ -1286,10 +1450,18 @@ export default function App(){
                       <button onClick={()=>setSnapModal(true)} style={{marginLeft:"auto",background:"#1e3a5f",border:"1px solid #2a5580",color:"#88bbdd",borderRadius:5,padding:"5px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>📸 스냅샷 기록</button>
                     </div>
                     <div style={{...cardStyle,marginBottom:12}}>
-                      <GrowthLine history={sel?.history||[]} />
+                      <GrowthLine history={sel?.history||[]} abilities={abilities} />
+                    </div>
+                    <div style={{...cardStyle,marginBottom:12}}>
+                      <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:9}}>능력치별 변화 (단위 기준)</div>
+                      {(sel?.history||[]).length<2 && <p style={{color:"#335577",fontSize:12}}>스냅샷 2개 이상이면 능력치별 추이가 표시됩니다</p>}
+                      {(sel?.history||[]).length>=2 && (() => {
+                        const rows = abilities.map(ab => <AbilityGrowthLine key={ab.key} ab={ab} history={sel.history} />).filter(Boolean);
+                        return rows.length ? rows : <p style={{color:"#335577",fontSize:12}}>변화를 표시할 데이터가 없습니다</p>;
+                      })()}
                     </div>
                     <div style={cardStyle}>
-                      <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:9}}>스냅샷 이력</div>
+                      <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:9}}>스냅샷 이력 (OVR)</div>
                       {(sel?.history||[]).length===0 && <p style={{color:"#335577",fontSize:12}}>스냅샷이 없습니다</p>}
                       {[...(sel?.history||[])].reverse().map((h,i,arr)=>{
                         const v2=ovr(h.attrs), p2=arr[i+1], diff=p2?v2-ovr(p2.attrs):0;
@@ -1431,7 +1603,7 @@ export default function App(){
                 📌 슬롯 {selSlot+1} ({slots[selSlot]?.p}) — 오른쪽에서 선수를 클릭하세요
               </div>
             )}
-            <Pitch formation={formation} lineup={lineup} players={players} onSlot={handleSlot} selSlot={selSlot} slotPositions={slotPositions} onDragEnd={handleDragEnd} slotPosOverrides={slotPosOverrides} showZones={showZones} showChannels={showChannels} cardMode={cardMode} />
+            <Pitch formation={formation} lineup={lineup} players={players} onSlot={handleSlot} selSlot={selSlot} slotPositions={slotPositions} onDragEnd={handleDragEnd} slotPosOverrides={slotPosOverrides} showZones={showZones} showChannels={showChannels} cardMode={cardMode} abilities={abilities} />
             {/* lineup table */}
             <div style={{...cardStyle}}>
               <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:8}}>라인업</div>
@@ -1582,6 +1754,61 @@ export default function App(){
               );
             })}
             {sortedMatches.length===0 && <p style={{color:"#335577",fontSize:12,textAlign:"center",marginTop:20}}>등록된 경기가 없습니다. "+ 경기 추가"로 새 경기를 등록하세요.</p>}
+          </div>
+        </div>
+      )}
+
+      {/* 능력치 관리 모달 */}
+      {attrMgrOpen && (
+        <div onClick={()=>setAttrMgrOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16}}>
+          <datalist id="unit-presets">{UNIT_PRESETS.filter(Boolean).map(u=><option key={u} value={u} />)}</datalist>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#0a1a2e",border:"1px solid #1e3a5f",borderRadius:12,width:680,maxWidth:"96vw",maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
+            <div style={{display:"flex",alignItems:"center",padding:"14px 18px",borderBottom:"1px solid #1e3a5f"}}>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:16,fontWeight:700,color:"#4499dd"}}>⚙ 능력치 관리</div>
+              <button onClick={()=>setAttrMgrOpen(false)} style={{marginLeft:"auto",background:"transparent",border:"none",color:"#5577aa",fontSize:18,cursor:"pointer"}}>✕</button>
+            </div>
+            <div style={{padding:"14px 18px",overflowY:"auto"}}>
+              <div style={{fontSize:11,color:"#5a7a9a",marginBottom:12,lineHeight:1.6,background:"#071525",border:"1px solid #0d2340",borderRadius:6,padding:"8px 11px"}}>
+                이름을 바꾸거나 항목을 삭제해도 <b style={{color:"#88bbdd"}}>기존 선수 데이터는 안전하게 유지</b>됩니다. 단위가 있는 항목은 "기준 최소~최대"와 방향으로 0~100 점수(OVR·색상)를 계산합니다. 단위를 비우면 0~100 점수형입니다.
+              </div>
+              {groups.map(g=>(
+                <div key={g.id} style={{border:"1px solid #0d2340",borderRadius:8,marginBottom:12,overflow:"hidden"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,background:"#0d1b2a",padding:"8px 10px",flexWrap:"wrap"}}>
+                    <span style={{fontSize:9,color:"#4a6a8a"}}>그룹</span>
+                    <input value={g.name} onChange={e=>renameGroup(g.id,e.target.value)} style={{...INPUT,fontWeight:700,width:150}} />
+                    <span style={{fontSize:10,color:"#4a6a8a"}}>{(abilitiesByGroup[g.id]||[]).length}개</span>
+                    <button onClick={()=>addAbility(g.id)} style={{marginLeft:"auto",background:"#0d3a24",border:"1px solid #1e5a30",color:"#69f0ae",borderRadius:5,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>+ 능력치</button>
+                    <button onClick={()=>{ if(window.confirm(`'${g.name}' 그룹을 삭제할까요?\n소속 능력치는 삭제되지 않고 첫 그룹으로 이동합니다.`)) deleteGroup(g.id); }} style={{background:"#2a1010",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"4px 8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>그룹 삭제</button>
+                  </div>
+                  <div style={{padding:"4px 10px 8px"}}>
+                    {(abilitiesByGroup[g.id]||[]).map(ab=>(
+                      <div key={ab.key} style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",padding:"7px 0",borderBottom:"1px solid #0d2340"}}>
+                        <input value={ab.label} onChange={e=>updateAbility(ab.key,{label:e.target.value})} placeholder="이름" style={{...INPUT,width:104}} />
+                        <input list="unit-presets" value={ab.unit} onChange={e=>updateAbility(ab.key,{unit:e.target.value})} placeholder="점수" title="단위 (비우면 0~100 점수)" style={{...INPUT,width:60}} />
+                        <select value={ab.direction} onChange={e=>updateAbility(ab.key,{direction:e.target.value})} title="좋은 방향" style={{...INPUT,width:98}}>
+                          <option value="high">↑ 높을수록</option>
+                          <option value="low">↓ 낮을수록</option>
+                        </select>
+                        <span style={{fontSize:9,color:"#4a6a8a"}}>기준</span>
+                        <input type="number" value={ab.min} onChange={e=>updateAbility(ab.key,{min:e.target.value===""?0:Number(e.target.value)})} title="기준 최소" style={{...INPUT,width:52,padding:"5px 4px"}} />
+                        <span style={{fontSize:10,color:"#4a6a8a"}}>~</span>
+                        <input type="number" value={ab.max} onChange={e=>updateAbility(ab.key,{max:e.target.value===""?100:Number(e.target.value)})} title="기준 최대" style={{...INPUT,width:52,padding:"5px 4px"}} />
+                        <select value={ab.group} onChange={e=>updateAbility(ab.key,{group:e.target.value})} title="그룹" style={{...INPUT,width:84}}>
+                          {groups.map(gg=><option key={gg.id} value={gg.id}>{gg.name}</option>)}
+                        </select>
+                        <button onClick={()=>{ if(window.confirm(`'${ab.label}' 능력치를 삭제할까요?\n선수에 입력된 값은 보존됩니다.`)) deleteAbility(ab.key); }} style={{marginLeft:"auto",background:"transparent",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"4px 8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>삭제</button>
+                      </div>
+                    ))}
+                    {(abilitiesByGroup[g.id]||[]).length===0 && <div style={{fontSize:11,color:"#335577",padding:"7px 0"}}>능력치 없음 — "+ 능력치"로 추가하세요.</div>}
+                  </div>
+                </div>
+              ))}
+              <button onClick={addGroup} style={{background:"#1e3a5f",border:"1px solid #2a5580",color:"#88bbdd",borderRadius:6,padding:"7px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 그룹 추가</button>
+            </div>
+            <div style={{padding:"12px 18px",borderTop:"1px solid #1e3a5f",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+              <button onClick={()=>{ if(window.confirm("모든 그룹/능력치를 기본값으로 되돌릴까요?\n선수에 입력된 값 자체는 유지됩니다.")){ setSchema(DEFAULT_SCHEMA); setACat(DEFAULT_SCHEMA.groups[0].id); } }} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>기본값 복원</button>
+              <button onClick={()=>setAttrMgrOpen(false)} style={{background:"#1e6ba8",border:"none",color:"#fff",borderRadius:5,padding:"8px 22px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>완료</button>
+            </div>
           </div>
         </div>
       )}
