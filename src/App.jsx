@@ -18,7 +18,16 @@ const DEFAULT_GROUPS = DEFAULT_GROUP_META.map(([name,id]) => ({ id, name }));
 const DEFAULT_ABILITIES = DEFAULT_GROUP_META.flatMap(([name,id]) =>
   ATTRS[name].map(a => ({ key:a.k, label:a.l, group:id, unit:"", direction:"high", min:0, max:100 }))
 );
-const DEFAULT_SCHEMA = { groups: DEFAULT_GROUPS, abilities: DEFAULT_ABILITIES };
+// 레이더 기본 축(FM식 자유 구성) — 각 축은 이름 + 포함할 능력치 key 목록. 사용자가 편집 가능.
+const DEFAULT_RADAR = [
+  { id:"r_tech", label:"기술", keys:["dribbling","passing","technique","firstTouch"] },
+  { id:"r_phys", label:"신체", keys:["pace","acceleration","strength","stamina"] },
+  { id:"r_ment", label:"정신", keys:["vision","decisions","composure","leadership"] },
+  { id:"r_att",  label:"공격", keys:["finishing","longShots","crossing","heading"] },
+  { id:"r_def",  label:"수비", keys:["strength","jumping","decisions","aggression"] },
+  { id:"r_cre",  label:"창의", keys:["vision","passing","technique","firstTouch"] },
+];
+const DEFAULT_SCHEMA = { groups: DEFAULT_GROUPS, abilities: DEFAULT_ABILITIES, radar: DEFAULT_RADAR };
 const ALL_ATTR_KEYS = DEFAULT_ABILITIES.map(a => a.key);
 
 // 능력치 추가/편집 시 고를 수 있는 단위 프리셋 ("" = 0~100 점수형)
@@ -66,18 +75,17 @@ function normalizeSchema(s){
     min: Number.isFinite(Number(a.min)) ? Number(a.min) : 0,
     max: Number.isFinite(Number(a.max)) ? Number(a.max) : 100,
   }));
-  return { groups, abilities };
+  // 레이더 축 구성 (없으면 기본 6축). 각 축은 이름 + 능력치 key 목록.
+  const radar = Array.isArray(s.radar) && s.radar.length
+    ? s.radar.map(ax => ({
+        id: String(ax.id ?? ("r_"+Math.random().toString(36).slice(2,8))),
+        label: String(ax.label ?? "축"),
+        keys: Array.isArray(ax.keys) ? ax.keys.map(String) : [],
+      }))
+    : DEFAULT_RADAR;
+  return { groups, abilities, radar };
 }
 
-// 레이더 6축(고정) — 기본 능력치 key로 정의. 능력치를 삭제/변경해도 살아있는 key만 평균내어 깨지지 않는다.
-const RADAR = [
-  {label:"기술", keys:["dribbling","passing","technique","firstTouch"]},
-  {label:"신체", keys:["pace","acceleration","strength","stamina"]},
-  {label:"정신", keys:["vision","decisions","composure","leadership"]},
-  {label:"공격", keys:["finishing","longShots","crossing","heading"]},
-  {label:"수비", keys:["strength","jumping","decisions","aggression"]},
-  {label:"창의", keys:["vision","passing","technique","firstTouch"]},
-];
 // 축 값 = 축에 속한 (현재 스키마에 존재하는) 능력치들의 정규화 점수 평균. 단위·방향 반영, 없는 key는 건너뜀.
 function radarAxisScore(axis, attrs, abilities){
   const map = {}; (abilities||[]).forEach(a => { map[a.key] = a; });
@@ -276,25 +284,41 @@ function Bar({ab, value, editing, onChange}){
   );
 }
 
-function Radar({attrs, prev, abilities}){
+function Radar({attrs, prev, abilities, radar}){
+  const axes = (radar && radar.length) ? radar : DEFAULT_RADAR;
   const size=200, cx=100, cy=100, r=68;
-  const ang = i => (Math.PI*2*i/6) - Math.PI/2;
+  const n = axes.length;
+  if(n < 3){
+    // 축이 3개 미만이면 다각형 대신 막대로 표시
+    return (
+      <div style={{width:size,display:"flex",flexDirection:"column",gap:9,padding:"18px 4px"}}>
+        {axes.map(ax=>{const v=radarAxisScore(ax,attrs,abilities); return (
+          <div key={ax.id}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#8899aa",marginBottom:3}}><span>{ax.label}</span><span style={{color:getColor(v),fontWeight:700}}>{v}</span></div>
+            <div style={{height:6,background:"#0d1b2a",borderRadius:3,overflow:"hidden"}}><div style={{width:`${v}%`,height:"100%",background:getColor(v)}}/></div>
+          </div>
+        );})}
+        {n===0 && <div style={{fontSize:11,color:"#335577",textAlign:"center"}}>레이더 축이 없습니다</div>}
+      </div>
+    );
+  }
+  const ang = i => (Math.PI*2*i/n) - Math.PI/2;
   const pt = (i,v) => ({x:cx+r*(v/99)*Math.cos(ang(i)), y:cy+r*(v/99)*Math.sin(ang(i))});
   const path = vs => vs.map((v,i)=>{const p=pt(i,v); return `${i===0?"M":"L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ")+"Z";
-  const vals = RADAR.map(ax=>radarAxisScore(ax,attrs,abilities));
-  const pvals = prev ? RADAR.map(ax=>radarAxisScore(ax,prev,abilities)) : null;
+  const vals = axes.map(ax=>radarAxisScore(ax,attrs,abilities));
+  const pvals = prev ? axes.map(ax=>radarAxisScore(ax,prev,abilities)) : null;
   return (
     <svg width={size} height={size} style={{overflow:"visible"}}>
       {[25,50,75,99].map(lvl => (
         <polygon key={lvl} fill="none" stroke="#1e3a5f" strokeWidth={0.7} opacity={0.5}
-          points={RADAR.map((_,i)=>{const p=pt(i,lvl); return `${p.x},${p.y}`;}).join(" ")} />
+          points={axes.map((_,i)=>{const p=pt(i,lvl); return `${p.x},${p.y}`;}).join(" ")} />
       ))}
-      {RADAR.map((_,i)=>{const p=pt(i,99); return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#1e3a5f" strokeWidth={0.7} opacity={0.4} />;  })}
+      {axes.map((_,i)=>{const p=pt(i,99); return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#1e3a5f" strokeWidth={0.7} opacity={0.4} />;  })}
       {pvals && <path d={path(pvals)} fill="rgba(255,152,0,0.1)" stroke="#ff9800" strokeWidth={1.2} strokeDasharray="4 3" />}
       <path d={path(vals)} fill="rgba(30,107,168,0.18)" stroke="#4499dd" strokeWidth={2} />
       {vals.map((v,i)=>{const p=pt(i,v); return <circle key={i} cx={p.x} cy={p.y} r={3.5} fill={getColor(v)} stroke="#030c14" strokeWidth={1} />;  })}
-      {RADAR.map((ax,i)=>{const p=pt(i,99); const lx=cx+(p.x-cx)*1.24, ly=cy+(p.y-cy)*1.24;
-        return <text key={i} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="#7799bb" fontFamily="'Barlow Condensed',sans-serif" fontWeight={700}>{ax.label}</text>;
+      {axes.map((ax,i)=>{const p=pt(i,99); const lx=cx+(p.x-cx)*1.24, ly=cy+(p.y-cy)*1.24;
+        return <text key={ax.id||i} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="#7799bb" fontFamily="'Barlow Condensed',sans-serif" fontWeight={700}>{ax.label}</text>;
       })}
     </svg>
   );
@@ -598,17 +622,20 @@ function pitchSvgForPrint(formationName, lineup, players, slotPositions, slotPos
     + `</svg>`;
 }
 
-function radarSvgForPrint(attrs, abilities){
-  const size=200, cx=100, cy=100, r=68, n=6;
+function radarSvgForPrint(attrs, abilities, radar){
+  const axList = (radar && radar.length) ? radar : DEFAULT_RADAR;
+  const n = axList.length;
+  if(n < 3) return ""; // 축이 3개 미만이면 레이더 생략
+  const size=200, cx=100, cy=100, r=68;
   const ang = i => (Math.PI*2*i/n) - Math.PI/2;
   const pt = (i,v) => ({x:cx+r*(v/99)*Math.cos(ang(i)), y:cy+r*(v/99)*Math.sin(ang(i))});
   const path = vs => vs.map((v,i)=>{const p=pt(i,v); return `${i===0?"M":"L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ")+"Z";
-  const vals = RADAR.map(ax=>radarAxisScore(ax, attrs, abilities));
+  const vals = axList.map(ax=>radarAxisScore(ax, attrs, abilities));
   const grid = [25,50,75,99].map(lvl =>
-    `<polygon fill="none" stroke="#999" stroke-width="0.6" points="${RADAR.map((_,i)=>{const p=pt(i,lvl); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ")}" />`
+    `<polygon fill="none" stroke="#999" stroke-width="0.6" points="${axList.map((_,i)=>{const p=pt(i,lvl); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ")}" />`
   ).join("");
-  const axes = RADAR.map((_,i)=>{const p=pt(i,99); return `<line x1="${cx}" y1="${cy}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}" stroke="#bbb" stroke-width="0.6" />`;}).join("");
-  const labels = RADAR.map((ax,i)=>{const p=pt(i,99); const lx=cx+(p.x-cx)*1.24, ly=cy+(p.y-cy)*1.24; return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#333" font-weight="700">${escapeHtml(ax.label)}</text>`;}).join("");
+  const axes = axList.map((_,i)=>{const p=pt(i,99); return `<line x1="${cx}" y1="${cy}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}" stroke="#bbb" stroke-width="0.6" />`;}).join("");
+  const labels = axList.map((ax,i)=>{const p=pt(i,99); const lx=cx+(p.x-cx)*1.24, ly=cy+(p.y-cy)*1.24; return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#333" font-weight="700">${escapeHtml(ax.label)}</text>`;}).join("");
   const dots = vals.map((v,i)=>{const p=pt(i,v); return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="#111" />`;}).join("");
   return `<svg width="${size}" height="${size}">${grid}${axes}<path d="${path(vals)}" fill="rgba(0,0,0,0.08)" stroke="#111" stroke-width="2" />${dots}${labels}</svg>`;
 }
@@ -665,9 +692,9 @@ function buildLineupPrintBody({teamName,badge,formationName,matchInfo,slots,line
     + (bench && bench.length ? `<h2>벤치</h2><table><thead><tr><th>포지션</th><th>이름</th><th>등번호</th><th>구단</th><th>OVR</th></tr></thead><tbody>${benchRows}</tbody></table>` : "");
 }
 
-function buildPlayerPrintBody(p, team, abilities, groups){
+function buildPlayerPrintBody(p, team, abilities, groups, radarAxes){
   const v = ovrFrom(p.attrs, abilities);
-  const radar = radarSvgForPrint(p.attrs, abilities, groups);
+  const radar = radarSvgForPrint(p.attrs, abilities, radarAxes);
   const num = p.number!==undefined && p.number!==null && p.number!=="" ? escapeHtml(String(p.number)) : "-";
   const photo = p.photo
     ? `<img src="${p.photo}" style="width:96px;height:96px;border-radius:50%;object-fit:cover;border:2px solid #111;" />`
@@ -775,6 +802,7 @@ export default function App(){
 
   const photoRef = useRef();
   const editPhotoRef = useRef();
+  const profilePhotoRef = useRef();
 
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -922,6 +950,12 @@ export default function App(){
   function updateAbility(key, patch){ updateSchema(s=>{ const a=s.abilities.find(x=>x.key===key); if(a) Object.assign(a, patch); return s; }); }
   function deleteAbility(key){ updateSchema(s=>{ s.abilities = s.abilities.filter(a=>a.key!==key); return s; }); } // attrs[key]는 보존
 
+  // ── 레이더 축 편집 (FM식 자유 구성) ──
+  function addRadarAxis(){ updateSchema(s=>{ s.radar = (s.radar||[]).concat({id:"r_"+Date.now(),label:"새 축",keys:[]}); return s; }); }
+  function renameRadarAxis(id,label){ updateSchema(s=>{ const a=(s.radar||[]).find(x=>x.id===id); if(a) a.label=label; return s; }); }
+  function deleteRadarAxis(id){ updateSchema(s=>{ s.radar = (s.radar||[]).filter(a=>a.id!==id); return s; }); }
+  function toggleRadarKey(id,key){ updateSchema(s=>{ const a=(s.radar||[]).find(x=>x.id===id); if(a){ a.keys = a.keys.includes(key) ? a.keys.filter(k=>k!==key) : a.keys.concat(key); } return s; }); }
+
   const teamMap = useMemo(()=>Object.fromEntries(teams.map(t=>[t.id,t])),[teams]);
   // 능력치 스키마 파생값 + OVR(정규화 평균) 로컬 헬퍼 — 컴포넌트 내 모든 ovr() 호출이 이걸 사용
   const groups = schema.groups;
@@ -948,14 +982,53 @@ export default function App(){
   const activeMatch = activeMatchId ? matches.find(m=>m.id===activeMatchId)||null : null;
   const sortedMatches = useMemo(()=>[...matches].sort((a,b)=>a.date.localeCompare(b.date)),[matches]);
 
-  function loadPhoto(file,target){
-    if(!file) return;
+  // 사진을 최대 420px로 축소·JPEG 압축해서 data URL 생성 (Firestore 1MB 문서 한도 대비, 클라우드 저장 안정화)
+  function processPhoto(file, cb){
+    if(!file){ cb(null); return; }
     const fr = new FileReader();
     fr.onload = e => {
-      if(target==="edit") setEditD(d=>({...d,photo:e.target.result}));
-      else setNewP(p=>({...p,photo:e.target.result}));
+      const src = e.target.result;
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 420;
+        let w = img.width, h = img.height;
+        if(w > MAX || h > MAX){ const s = MAX/Math.max(w,h); w = Math.round(w*s); h = Math.round(h*s); }
+        try {
+          const c = document.createElement("canvas"); c.width = w; c.height = h;
+          c.getContext("2d").drawImage(img, 0, 0, w, h);
+          cb(c.toDataURL("image/jpeg", 0.82));
+        } catch(err){ console.error("[photo] 축소 실패, 원본 사용:", err); cb(src); }
+      };
+      img.onerror = () => cb(src);
+      img.src = src;
     };
     fr.readAsDataURL(file);
+  }
+
+  function loadPhoto(file,target){
+    if(!file) return;
+    processPhoto(file, dataUrl => {
+      if(!dataUrl) return;
+      if(target==="edit") setEditD(d=>({...d,photo:dataUrl}));
+      else setNewP(p=>({...p,photo:dataUrl}));
+    });
+  }
+
+  // 편집 모드가 아니어도 프로필에서 바로 사진 추가/교체 (선택된 선수에 즉시 반영·저장)
+  function setProfilePhoto(file){
+    if(!file || !sel) return;
+    processPhoto(file, dataUrl => {
+      if(!dataUrl) return;
+      setPlayers(ps => ps.map(p => p.id===sel.id ? {...p, photo:dataUrl} : p));
+      setSel(s => s ? {...s, photo:dataUrl} : s);
+      if(editing) setEditD(d => d ? {...d, photo:dataUrl} : d);
+    });
+  }
+  function removeProfilePhoto(){
+    if(!sel) return;
+    setPlayers(ps => ps.map(p => p.id===sel.id ? {...p, photo:null} : p));
+    setSel(s => s ? {...s, photo:null} : s);
+    if(editing) setEditD(d => d ? {...d, photo:null} : d);
   }
 
   function saveEdit(){ setPlayers(ps=>ps.map(p=>p.id===editD.id?editD:p)); setSel(editD); setEditing(false); }
@@ -1100,7 +1173,7 @@ export default function App(){
   function handlePrintPlayer(){
     if(!display) return;
     const team = display.tid ? teamMap[display.tid] : null;
-    openPrintWindow(`${display.name} 프로필`, buildPlayerPrintBody(display, team, abilities, groups));
+    openPrintWindow(`${display.name} 프로필`, buildPlayerPrintBody(display, team, abilities, groups, schema.radar));
   }
 
   const NAV=["선수","팀 관리","베스트 11","경기 일정"];
@@ -1387,30 +1460,49 @@ export default function App(){
                 </div>
 
                 {dtab==="개요" && (
-                  <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-                    <div style={{...cardStyle,display:"flex",flexDirection:"column",alignItems:"center",flex:"0 0 224px"}}>
+                  <div style={{display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-start"}}>
+                    {/* 좌: 프로필 사진 + 레이더 + OVR (FM식 프로필) */}
+                    <div style={{...cardStyle,display:"flex",flexDirection:"column",alignItems:"center",flex:"0 0 240px"}}>
+                      <div onClick={()=>profilePhotoRef.current?.click()} title="클릭해서 사진 추가/교체" style={{width:150,height:180,borderRadius:10,overflow:"hidden",border:`2px solid ${selTeam?.color||"#1e3a5f"}`,background:"linear-gradient(160deg,#0d1b2a,#071525)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",position:"relative",marginBottom:12}}>
+                        {display.photo
+                          ? <img src={display.photo} alt={display.name} style={{width:"100%",height:"100%",objectFit:"cover"}} />
+                          : <div style={{textAlign:"center",color:"#33507a"}}><div style={{fontSize:44,lineHeight:1}}>👤</div><div style={{fontSize:11,fontWeight:700,marginTop:6}}>사진 추가</div></div>}
+                        <div style={{position:"absolute",bottom:7,right:7,background:"rgba(30,107,168,0.92)",borderRadius:"50%",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,border:"1px solid #2a8ad4"}}>📷</div>
+                      </div>
+                      {display.photo && <button onClick={removeProfilePhoto} style={{background:"transparent",border:"1px solid #3a1a1a",color:"#cc6666",borderRadius:5,padding:"3px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer",marginBottom:10}}>사진 삭제</button>}
+                      <input ref={profilePhotoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{setProfilePhoto(e.target.files[0]); e.target.value="";}} />
                       <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:6}}>레이더 차트</div>
-                      <Radar attrs={display.attrs} prev={prevSnap?.attrs} abilities={abilities} groups={groups} />
+                      <Radar attrs={display.attrs} prev={prevSnap?.attrs} abilities={abilities} radar={schema.radar} />
                       {prevSnap && <div style={{fontSize:9,color:"#ff9800",marginTop:3}}>── 이전 스냅샷 비교</div>}
+                      <div style={{marginTop:10,display:"flex",alignItems:"baseline",gap:6}}>
+                        <span style={{fontSize:11,color:"#5577aa",fontWeight:700}}>OVR</span>
+                        <span style={{fontSize:26,fontWeight:900,color:getColor(ovrVal),fontFamily:"'Oswald',sans-serif"}}>{ovrVal}</span>
+                      </div>
+                      <button onClick={()=>setAttrMgrOpen(true)} style={{marginTop:8,background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>⚙ 레이더 · 능력치 설정</button>
                     </div>
-                    <div style={{flex:1,minWidth:160,display:"flex",flexDirection:"column",gap:8}}>
+                    {/* 우: FM식 능력치 그리드 (그룹별 열, 항목마다 숫자값) */}
+                    <div style={{flex:1,minWidth:240,display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-start"}}>
                       {groups.map(g=>{
                         const atrs=abilitiesByGroup[g.id]||[];
                         if(!atrs.length) return null;
                         const avg=groupScore(g.id, display.attrs, abilities);
-                        const top=[...atrs].map(ab=>({ab,sc:abScore(ab,display.attrs[ab.key])})).filter(x=>x.sc!=null).sort((a,b)=>b.sc-a.sc).slice(0,3);
                         return (
-                          <div key={g.id} style={cardStyle}>
-                            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
-                              <div style={{fontSize:20,fontWeight:900,color:getColor(avg),fontFamily:"'Oswald',sans-serif",width:30}}>{avg}</div>
-                              <div style={{flex:1}}>
-                                <div style={{fontSize:11,fontWeight:700,color:"#8899aa",letterSpacing:1}}>{g.name} 평균</div>
-                                <div style={{fontSize:9,color:"#335577"}}>TOP: {top.map(({ab})=>`${ab.label} ${fmtVal(ab,display.attrs[ab.key])}`).join(" · ")||"-"}</div>
-                              </div>
+                          <div key={g.id} style={{...cardStyle,flex:"1 1 210px",minWidth:188}}>
+                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:7,paddingBottom:5,borderBottom:"1px solid #1e3a5f"}}>
+                              <span style={{fontSize:12,fontWeight:700,color:"#88bbdd",letterSpacing:1}}>{g.name}</span>
+                              <span style={{fontSize:15,fontWeight:900,color:getColor(avg),fontFamily:"'Oswald',sans-serif"}}>{avg}</span>
                             </div>
-                            <div style={{height:4,background:"#0d1b2a",borderRadius:3,overflow:"hidden"}}>
-                              <div style={{width:`${avg}%`,height:"100%",background:getColor(avg),borderRadius:3}} />
-                            </div>
+                            {atrs.map(ab=>{
+                              const raw=display.attrs[ab.key]; const sc=abScore(ab,raw); const col=sc!=null?getColor(sc):"#33507a";
+                              return (
+                                <div key={ab.key} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,padding:"3px 0"}}>
+                                  <span style={{fontSize:12,color:"#c0d4e8",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={ab.label}>
+                                    {ab.label}{ab.unit?<span style={{color:"#4a6a8a",fontSize:10}}> ({ab.unit})</span>:null}{ab.direction==="low"?<span style={{color:"#ff9800",fontSize:9}} title="낮을수록 좋음"> ↓</span>:null}
+                                  </span>
+                                  <span style={{fontSize:12.5,fontWeight:700,color:col,fontFamily:"'Barlow Condensed',sans-serif",minWidth:38,textAlign:"right",flexShrink:0}}>{fmtVal(ab,raw)}</span>
+                                </div>
+                              );
+                            })}
                           </div>
                         );
                       })}
@@ -1801,6 +1893,32 @@ export default function App(){
                 </div>
               ))}
               <button onClick={addGroup} style={{background:"#1e3a5f",border:"1px solid #2a5580",color:"#88bbdd",borderRadius:6,padding:"7px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 그룹 추가</button>
+
+              {/* ── 레이더 축 설정 (FM식 자유 구성) ── */}
+              <div style={{marginTop:20,paddingTop:14,borderTop:"1px solid #1e3a5f"}}>
+                <div style={{fontFamily:"'Oswald',sans-serif",fontSize:14,fontWeight:700,color:"#4499dd",marginBottom:6}}>📊 레이더 축 설정</div>
+                <div style={{fontSize:11,color:"#5a7a9a",marginBottom:12,lineHeight:1.6}}>레이더에 표시할 축을 자유롭게 구성하세요. 각 축은 <b style={{color:"#88bbdd"}}>이름</b>과 <b style={{color:"#88bbdd"}}>포함할 능력치</b>로 이뤄지며, 축 값은 선택한 능력치들의 점수 평균입니다. (3축 이상 권장)</div>
+                {(schema.radar||[]).map(ax=>(
+                  <div key={ax.id} style={{border:"1px solid #0d2340",borderRadius:8,marginBottom:10,overflow:"hidden"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,background:"#0d1b2a",padding:"8px 10px",flexWrap:"wrap"}}>
+                      <span style={{fontSize:9,color:"#4a6a8a"}}>축</span>
+                      <input value={ax.label} onChange={e=>renameRadarAxis(ax.id,e.target.value)} style={{...INPUT,fontWeight:700,width:150}} />
+                      <span style={{fontSize:10,color:"#4a6a8a"}}>{ax.keys.length}개 능력치</span>
+                      <button onClick={()=>{ if(window.confirm(`'${ax.label}' 축을 삭제할까요?`)) deleteRadarAxis(ax.id); }} style={{marginLeft:"auto",background:"transparent",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"4px 8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>축 삭제</button>
+                    </div>
+                    <div style={{padding:"8px 10px",display:"flex",flexWrap:"wrap",gap:5}}>
+                      {abilities.map(ab=>{
+                        const on = ax.keys.includes(ab.key);
+                        return (
+                          <button key={ab.key} onClick={()=>toggleRadarKey(ax.id,ab.key)} style={{background:on?"#1e6ba8":"transparent",border:on?"1px solid #2a8ad4":"1px solid #1e3a5f",color:on?"#fff":"#5577aa",borderRadius:100,padding:"3px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>{on?"✓ ":""}{ab.label}</button>
+                        );
+                      })}
+                      {abilities.length===0 && <span style={{fontSize:11,color:"#335577"}}>능력치가 없습니다</span>}
+                    </div>
+                  </div>
+                ))}
+                <button onClick={addRadarAxis} style={{background:"#1e3a5f",border:"1px solid #2a5580",color:"#88bbdd",borderRadius:6,padding:"7px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 축 추가</button>
+              </div>
             </div>
             <div style={{padding:"12px 18px",borderTop:"1px solid #1e3a5f",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
               <button onClick={()=>{ if(window.confirm("모든 그룹/능력치를 기본값으로 되돌릴까요?\n선수에 입력된 값 자체는 유지됩니다.")){ setSchema(DEFAULT_SCHEMA); setACat(DEFAULT_SCHEMA.groups[0].id); } }} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>기본값 복원</button>
