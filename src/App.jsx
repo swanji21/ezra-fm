@@ -792,6 +792,7 @@ export default function App(){
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarViewMode, setSidebarViewMode] = useState("all"); // "all" | "position"
   const [cardMode, setCardMode] = useState("stats"); // "stats" | "number" | "position"
+  const [cmpScope, setCmpScope] = useState("all"); // 평균 비교 대상: all | pos | team
   const [schema, setSchema] = useState(DEFAULT_SCHEMA); // 사용자 편집 가능한 능력치 스키마
   const [attrMgrOpen, setAttrMgrOpen] = useState(false); // 능력치 관리 모달
 
@@ -967,6 +968,40 @@ export default function App(){
     return m;
   }, [schema]);
   const display = editing ? editD : sel;
+
+  // ── 평균 비교: 선택 선수를 비교 대상(전체/같은 포지션/같은 팀)의 평균과 견줌 ──
+  const cmpPlayers = useMemo(() => {
+    if(!display) return players;
+    if(cmpScope==="pos")  return players.filter(p => p.pos === display.pos);
+    if(cmpScope==="team") return players.filter(p => p.tid && p.tid === display.tid);
+    return players;
+  }, [players, cmpScope, display?.pos, display?.tid]);
+  const cmpAvg = useMemo(() => {
+    const rawSum={}, scoreSum={}, cnt={};
+    abilities.forEach(ab => { rawSum[ab.key]=0; scoreSum[ab.key]=0; cnt[ab.key]=0; });
+    let ovrSum=0, ovrCnt=0;
+    const gSum={}, gCnt={}; groups.forEach(g=>{ gSum[g.id]=0; gCnt[g.id]=0; });
+    cmpPlayers.forEach(p => {
+      abilities.forEach(ab => {
+        const raw = p.attrs?.[ab.key]; const sc = abScore(ab, raw);
+        if(sc!=null){ rawSum[ab.key]+=Number(raw); scoreSum[ab.key]+=sc; cnt[ab.key]++; }
+      });
+      ovrSum += ovrFrom(p.attrs, abilities); ovrCnt++;
+      groups.forEach(g => { gSum[g.id]+=groupScore(g.id,p.attrs,abilities); gCnt[g.id]++; });
+    });
+    const avgRaw={}, avgScore={}, avgGroup={};
+    abilities.forEach(ab => { avgRaw[ab.key]=cnt[ab.key]?rawSum[ab.key]/cnt[ab.key]:null; avgScore[ab.key]=cnt[ab.key]?Math.round(scoreSum[ab.key]/cnt[ab.key]):null; });
+    groups.forEach(g => { avgGroup[g.id]=gCnt[g.id]?Math.round(gSum[g.id]/gCnt[g.id]):0; });
+    return { avgRaw, avgScore, avgGroup, avgOvr: ovrCnt?Math.round(ovrSum/ovrCnt):0, count: cmpPlayers.length };
+  }, [cmpPlayers, schema]);
+  // 평균 대비 표시(값 축약 + 위/아래 화살표)
+  function cmpMark(sc, avgSc){
+    if(sc==null || avgSc==null) return {arrow:"", col:"#4a6a8a"};
+    if(sc>avgSc) return {arrow:"▲", col:"#00e676"};
+    if(sc<avgSc) return {arrow:"▼", col:"#ef5350"};
+    return {arrow:"=", col:"#8899aa"};
+  }
+  const fmtAvg = (ab, v) => v==null ? "-" : (ab.unit ? `${Math.round(v*10)/10}${ab.unit}` : `${Math.round(v)}`);
   const ovrVal = display ? ovr(display.attrs) : 0;
   const prevSnap = sel?.history?.length>=2 ? sel.history[sel.history.length-2] : null;
   const selTeam = display?.tid ? teamMap[display.tid] : null;
@@ -1477,7 +1512,16 @@ export default function App(){
                       <div style={{marginTop:10,display:"flex",alignItems:"baseline",gap:6}}>
                         <span style={{fontSize:11,color:"#5577aa",fontWeight:700}}>OVR</span>
                         <span style={{fontSize:26,fontWeight:900,color:getColor(ovrVal),fontFamily:"'Oswald',sans-serif"}}>{ovrVal}</span>
+                        {(()=>{const m=cmpMark(ovrVal,cmpAvg.avgOvr);const d=ovrVal-cmpAvg.avgOvr;return <span style={{fontSize:11,fontWeight:700,color:m.col}}>{m.arrow} 평균 {cmpAvg.avgOvr} ({d>0?"+":""}{d})</span>;})()}
                       </div>
+                      {/* 평균 비교 대상 선택 */}
+                      <div style={{marginTop:8,display:"flex",alignItems:"center",gap:4,flexWrap:"wrap",justifyContent:"center"}}>
+                        <span style={{fontSize:9,color:"#4a6a8a"}}>비교</span>
+                        {[["all","전체"],["pos","같은 포지션"],["team","같은 팀"]].map(([v,l])=>(
+                          <button key={v} onClick={()=>setCmpScope(v)} style={{background:cmpScope===v?"#1e3a5f":"transparent",border:cmpScope===v?"1px solid #2a5580":"1px solid #0d2340",color:cmpScope===v?"#88bbdd":"#4477aa",borderRadius:5,padding:"2px 8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,cursor:"pointer"}}>{l}</button>
+                        ))}
+                      </div>
+                      <div style={{fontSize:9,color:"#33507a",marginTop:3}}>비교 대상 {cmpAvg.count}명</div>
                       <button onClick={()=>setAttrMgrOpen(true)} style={{marginTop:8,background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>⚙ 레이더 · 능력치 설정</button>
                     </div>
                     {/* 우: FM식 능력치 그리드 (그룹별 열, 항목마다 숫자값) */}
@@ -1486,20 +1530,28 @@ export default function App(){
                         const atrs=abilitiesByGroup[g.id]||[];
                         if(!atrs.length) return null;
                         const avg=groupScore(g.id, display.attrs, abilities);
+                        const gAvg=cmpAvg.avgGroup[g.id]; const gm=cmpMark(avg,gAvg);
                         return (
-                          <div key={g.id} style={{...cardStyle,flex:"1 1 210px",minWidth:188}}>
+                          <div key={g.id} style={{...cardStyle,flex:"1 1 220px",minWidth:200}}>
                             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:7,paddingBottom:5,borderBottom:"1px solid #1e3a5f"}}>
                               <span style={{fontSize:12,fontWeight:700,color:"#88bbdd",letterSpacing:1}}>{g.name}</span>
-                              <span style={{fontSize:15,fontWeight:900,color:getColor(avg),fontFamily:"'Oswald',sans-serif"}}>{avg}</span>
+                              <span style={{display:"flex",alignItems:"baseline",gap:5}}>
+                                <span style={{fontSize:9,color:"#4a6a8a"}}>Ø{gAvg}</span>
+                                <span style={{fontSize:15,fontWeight:900,color:getColor(avg),fontFamily:"'Oswald',sans-serif"}}>{avg}</span>
+                                <span style={{fontSize:10,color:gm.col}}>{gm.arrow}</span>
+                              </span>
                             </div>
                             {atrs.map(ab=>{
                               const raw=display.attrs[ab.key]; const sc=abScore(ab,raw); const col=sc!=null?getColor(sc):"#33507a";
+                              const aRaw=cmpAvg.avgRaw[ab.key]; const aSc=cmpAvg.avgScore[ab.key]; const m=cmpMark(sc,aSc);
                               return (
-                                <div key={ab.key} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,padding:"3px 0"}}>
-                                  <span style={{fontSize:12,color:"#c0d4e8",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={ab.label}>
+                                <div key={ab.key} style={{display:"flex",alignItems:"center",gap:6,padding:"3px 0"}}>
+                                  <span style={{flex:1,minWidth:0,fontSize:12,color:"#c0d4e8",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={ab.label}>
                                     {ab.label}{ab.unit?<span style={{color:"#4a6a8a",fontSize:10}}> ({ab.unit})</span>:null}{ab.direction==="low"?<span style={{color:"#ff9800",fontSize:9}} title="낮을수록 좋음"> ↓</span>:null}
                                   </span>
-                                  <span style={{fontSize:12.5,fontWeight:700,color:col,fontFamily:"'Barlow Condensed',sans-serif",minWidth:38,textAlign:"right",flexShrink:0}}>{fmtVal(ab,raw)}</span>
+                                  <span style={{fontSize:10,color:"#4a6a8a",minWidth:34,textAlign:"right",flexShrink:0}} title="비교 대상 평균">Ø{fmtAvg(ab,aRaw)}</span>
+                                  <span style={{fontSize:12.5,fontWeight:700,color:col,fontFamily:"'Barlow Condensed',sans-serif",minWidth:34,textAlign:"right",flexShrink:0}}>{fmtVal(ab,raw)}</span>
+                                  <span style={{fontSize:9,color:m.col,width:9,textAlign:"center",flexShrink:0}}>{m.arrow}</span>
                                 </div>
                               );
                             })}
