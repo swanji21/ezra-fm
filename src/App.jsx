@@ -795,6 +795,7 @@ export default function App(){
   const [cmpScope, setCmpScope] = useState("all"); // 평균 비교 대상: all | pos | team
   const [schema, setSchema] = useState(DEFAULT_SCHEMA); // 사용자 편집 가능한 능력치 스키마
   const [attrMgrOpen, setAttrMgrOpen] = useState(false); // 능력치 관리 모달
+  const [radarEditOpen, setRadarEditOpen] = useState(false); // 선수별 레이더 편집 모달
 
   const [matches, setMatches] = useState([]);
   const [activeMatchId, setActiveMatchId] = useState(null);
@@ -957,6 +958,41 @@ export default function App(){
   function deleteRadarAxis(id){ updateSchema(s=>{ s.radar = (s.radar||[]).filter(a=>a.id!==id); return s; }); }
   function toggleRadarKey(id,key){ updateSchema(s=>{ const a=(s.radar||[]).find(x=>x.id===id); if(a){ a.keys = a.keys.includes(key) ? a.keys.filter(k=>k!==key) : a.keys.concat(key); } return s; }); }
 
+  // ── 선수별 레이더 편집 (선수마다 다른 테스트 항목을 레이더로) ──
+  // player.radar가 있으면 그 선수 전용 레이더, 없으면 기본(schema.radar) 사용.
+  function updatePlayerRadar(mut){
+    if(!sel) return;
+    const sid = sel.id;
+    // 함수형 업데이트로 연속 호출이 이전 상태에 누적되게(스테일 방지). 최초 편집 시 기본 레이더를 시드로 사용.
+    const apply = obj => {
+      const base = Array.isArray(obj.radar) ? obj.radar : schema.radar;
+      return {...obj, radar: mut(structuredClone(base))};
+    };
+    setPlayers(ps => ps.map(p => p.id===sid ? apply(p) : p));
+    setSel(s => s && s.id===sid ? apply(s) : s);
+    if(editing) setEditD(d => d ? apply(d) : d);
+  }
+  function clearPlayerRadar(){  // 비우고 이 선수만의 축을 새로 만들기 시작
+    if(!sel) return; const sid=sel.id;
+    setPlayers(ps => ps.map(p => p.id===sid ? {...p, radar: []} : p));
+    setSel(s => s && s.id===sid ? {...s, radar: []} : s);
+    if(editing) setEditD(d => d ? {...d, radar: []} : d);
+  }
+  function addPlayerAxisFromAbility(key){
+    const ab = abilities.find(a=>a.key===key);
+    updatePlayerRadar(axes => axes.concat({ id:"r_"+Date.now()+"_"+Math.floor(Math.random()*1000), label: ab?ab.label:"축", keys:[key] }));
+  }
+  function addPlayerAxis(){ updatePlayerRadar(axes => axes.concat({ id:"r_"+Date.now(), label:"새 축", keys:[] })); }
+  function renamePlayerAxis(id,label){ updatePlayerRadar(axes => axes.map(a=>a.id===id?{...a,label}:a)); }
+  function deletePlayerAxis(id){ updatePlayerRadar(axes => axes.filter(a=>a.id!==id)); }
+  function togglePlayerAxisKey(id,key){ updatePlayerRadar(axes => axes.map(a => a.id===id ? {...a, keys: a.keys.includes(key)?a.keys.filter(k=>k!==key):a.keys.concat(key)} : a)); }
+  function resetPlayerRadar(){
+    if(!sel) return;
+    setPlayers(ps => ps.map(p => p.id===sel.id ? {...p, radar: null} : p));
+    setSel(s => s ? {...s, radar: null} : s);
+    if(editing) setEditD(d => d ? {...d, radar: null} : d);
+  }
+
   const teamMap = useMemo(()=>Object.fromEntries(teams.map(t=>[t.id,t])),[teams]);
   // 능력치 스키마 파생값 + OVR(정규화 평균) 로컬 헬퍼 — 컴포넌트 내 모든 ovr() 호출이 이걸 사용
   const groups = schema.groups;
@@ -968,6 +1004,9 @@ export default function App(){
     return m;
   }, [schema]);
   const display = editing ? editD : sel;
+  // 선수별 레이더: player.radar가 배열이면(빈 배열 포함) 이 선수 전용, 없으면(null) 기본 레이더(schema.radar)
+  const usingCustomRadar = Array.isArray(display?.radar);
+  const playerRadar = usingCustomRadar ? display.radar : schema.radar;
 
   // ── 평균 비교: 선택 선수를 비교 대상(전체/같은 포지션/같은 팀)의 평균과 견줌 ──
   const cmpPlayers = useMemo(() => {
@@ -1208,7 +1247,7 @@ export default function App(){
   function handlePrintPlayer(){
     if(!display) return;
     const team = display.tid ? teamMap[display.tid] : null;
-    openPrintWindow(`${display.name} 프로필`, buildPlayerPrintBody(display, team, abilities, groups, schema.radar));
+    openPrintWindow(`${display.name} 프로필`, buildPlayerPrintBody(display, team, abilities, groups, Array.isArray(display.radar) ? display.radar : schema.radar));
   }
 
   const NAV=["선수","팀 관리","베스트 11","경기 일정"];
@@ -1506,9 +1545,13 @@ export default function App(){
                       </div>
                       {display.photo && <button onClick={removeProfilePhoto} style={{background:"transparent",border:"1px solid #3a1a1a",color:"#cc6666",borderRadius:5,padding:"3px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer",marginBottom:10}}>사진 삭제</button>}
                       <input ref={profilePhotoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{setProfilePhoto(e.target.files[0]); e.target.value="";}} />
-                      <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:6}}>레이더 차트</div>
-                      <Radar attrs={display.attrs} prev={prevSnap?.attrs} abilities={abilities} radar={schema.radar} />
+                      <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:6,display:"flex",alignItems:"center",gap:6}}>
+                        레이더 차트
+                        {usingCustomRadar && <span style={{fontSize:8,color:"#69f0ae",border:"1px solid #1e5a30",borderRadius:100,padding:"1px 6px",letterSpacing:0}}>선수 전용</span>}
+                      </div>
+                      <Radar attrs={display.attrs} prev={prevSnap?.attrs} abilities={abilities} radar={playerRadar} />
                       {prevSnap && <div style={{fontSize:9,color:"#ff9800",marginTop:3}}>── 이전 스냅샷 비교</div>}
+                      <button onClick={()=>setRadarEditOpen(true)} style={{marginTop:8,background:"transparent",border:"1px solid #1e3a5f",color:"#69a0d0",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>🎯 이 선수 레이더 편집</button>
                       <div style={{marginTop:10,display:"flex",alignItems:"baseline",gap:6}}>
                         <span style={{fontSize:11,color:"#5577aa",fontWeight:700}}>OVR</span>
                         <span style={{fontSize:26,fontWeight:900,color:getColor(ovrVal),fontFamily:"'Oswald',sans-serif"}}>{ovrVal}</span>
@@ -1895,6 +1938,60 @@ export default function App(){
               );
             })}
             {sortedMatches.length===0 && <p style={{color:"#335577",fontSize:12,textAlign:"center",marginTop:20}}>등록된 경기가 없습니다. "+ 경기 추가"로 새 경기를 등록하세요.</p>}
+          </div>
+        </div>
+      )}
+
+      {/* 선수별 레이더 편집 모달 */}
+      {radarEditOpen && sel && (
+        <div onClick={()=>setRadarEditOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#0a1a2e",border:"1px solid #1e3a5f",borderRadius:12,width:640,maxWidth:"96vw",maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"14px 18px",borderBottom:"1px solid #1e3a5f"}}>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:16,fontWeight:700,color:"#4499dd"}}>🎯 {sel.name} 레이더 편집</div>
+              {usingCustomRadar
+                ? <span style={{fontSize:9,color:"#69f0ae",border:"1px solid #1e5a30",borderRadius:100,padding:"2px 8px"}}>선수 전용</span>
+                : <span style={{fontSize:9,color:"#5577aa",border:"1px solid #1e3a5f",borderRadius:100,padding:"2px 8px"}}>기본 레이더 사용 중</span>}
+              <button onClick={()=>setRadarEditOpen(false)} style={{marginLeft:"auto",background:"transparent",border:"none",color:"#5577aa",fontSize:18,cursor:"pointer"}}>✕</button>
+            </div>
+            <div style={{padding:"14px 18px",overflowY:"auto"}}>
+              <div style={{fontSize:11,color:"#5a7a9a",marginBottom:12,lineHeight:1.6,background:"#071525",border:"1px solid #0d2340",borderRadius:6,padding:"8px 11px"}}>
+                선수마다 테스트 항목이 다를 수 있으니 <b style={{color:"#88bbdd"}}>이 선수만의 레이더</b>를 만들 수 있어요. 아래에서 능력치를 누르면 <b style={{color:"#88bbdd"}}>그 능력치 하나가 축</b>으로 추가되고, 여러 능력치를 한 축에 묶을 수도 있습니다. 편집하지 않으면 기본 레이더로 표시됩니다.
+              </div>
+
+              <div style={{fontSize:11,color:"#4499dd",fontWeight:700,letterSpacing:1,marginBottom:6}}>＋ 능력치를 축으로 추가 (개별 항목)</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:14}}>
+                {abilities.map(ab=>(
+                  <button key={ab.key} onClick={()=>addPlayerAxisFromAbility(ab.key)} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#88bbdd",borderRadius:100,padding:"3px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>+ {ab.label}</button>
+                ))}
+                {abilities.length===0 && <span style={{fontSize:11,color:"#335577"}}>능력치가 없습니다</span>}
+              </div>
+
+              <div style={{fontSize:11,color:"#4499dd",fontWeight:700,letterSpacing:1,marginBottom:6}}>현재 축 ({playerRadar.length}) — {usingCustomRadar?"이 선수 전용":"기본값(편집 시 전용으로 전환)"}</div>
+              {playerRadar.map(ax=>(
+                <div key={ax.id} style={{border:"1px solid #0d2340",borderRadius:8,marginBottom:10,overflow:"hidden"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,background:"#0d1b2a",padding:"8px 10px",flexWrap:"wrap"}}>
+                    <span style={{fontSize:9,color:"#4a6a8a"}}>축</span>
+                    <input value={ax.label} onChange={e=>renamePlayerAxis(ax.id,e.target.value)} style={{...INPUT,fontWeight:700,width:150}} />
+                    <span style={{fontSize:10,color:"#4a6a8a"}}>{ax.keys.length}개</span>
+                    <button onClick={()=>deletePlayerAxis(ax.id)} style={{marginLeft:"auto",background:"transparent",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"4px 8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>축 삭제</button>
+                  </div>
+                  <div style={{padding:"8px 10px",display:"flex",flexWrap:"wrap",gap:5}}>
+                    {abilities.map(ab=>{
+                      const on = ax.keys.includes(ab.key);
+                      return <button key={ab.key} onClick={()=>togglePlayerAxisKey(ax.id,ab.key)} style={{background:on?"#1e6ba8":"transparent",border:on?"1px solid #2a8ad4":"1px solid #1e3a5f",color:on?"#fff":"#5577aa",borderRadius:100,padding:"3px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>{on?"✓ ":""}{ab.label}</button>;
+                    })}
+                  </div>
+                </div>
+              ))}
+              <button onClick={addPlayerAxis} style={{background:"#1e3a5f",border:"1px solid #2a5580",color:"#88bbdd",borderRadius:6,padding:"7px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 빈 축 추가</button>
+            </div>
+            <div style={{padding:"12px 18px",borderTop:"1px solid #1e3a5f",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>{ if(window.confirm("축을 모두 비우고 이 선수만의 레이더를 새로 만들까요?")) clearPlayerRadar(); }} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>비우고 새로 만들기</button>
+                <button onClick={()=>{ if(window.confirm("이 선수의 레이더를 기본 레이더로 되돌릴까요?")) resetPlayerRadar(); }} disabled={!usingCustomRadar} style={{background:"transparent",border:"1px solid #1e3a5f",color:usingCustomRadar?"#5577aa":"#2a4055",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:usingCustomRadar?"pointer":"default"}}>기본 레이더로 되돌리기</button>
+              </div>
+              <button onClick={()=>setRadarEditOpen(false)} style={{background:"#1e6ba8",border:"none",color:"#fff",borderRadius:5,padding:"8px 22px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>완료</button>
+            </div>
           </div>
         </div>
       )}
