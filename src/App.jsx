@@ -324,6 +324,92 @@ function Radar({attrs, prev, abilities, radar}){
   );
 }
 
+// 그룹(기술/신체/정신…)별 레이더 색상
+const RADAR_GROUP_COLORS = ["#4aa3e0","#3ecb8f","#f0a83a","#c07ae0","#e0648a","#4ad0c0","#a0d048","#e0904a"];
+function groupColorAt(i){ return RADAR_GROUP_COLORS[i % RADAR_GROUP_COLORS.length]; }
+
+// 그룹별 색상으로 겹쳐 보이는 레이더 + 그룹 클릭 시 세부 축(능력치) 드릴다운
+function GroupRadar({attrs, groups, abilities, drillGroup, onDrill}){
+  const size=214, cx=107, cy=102, r=72;
+  const polar = (i,n,v) => { const a=(Math.PI*2*i/n)-Math.PI/2; return {x:cx+r*(v/99)*Math.cos(a), y:cy+r*(v/99)*Math.sin(a)}; };
+  const axisPt = (i,n) => { const a=(Math.PI*2*i/n)-Math.PI/2; return {x:cx+r*Math.cos(a), y:cy+r*Math.sin(a)}; };
+
+  // ── 드릴다운: 한 분류의 세부 축(능력치) ──
+  if(drillGroup){
+    const gi = groups.findIndex(g=>g.id===drillGroup);
+    const g = groups[gi];
+    if(!g){ return null; }
+    const col = groupColorAt(gi);
+    const abs = abilities.filter(a=>a.group===g.id);
+    const n = abs.length;
+    if(n < 3){
+      return (
+        <div style={{width:size,display:"flex",flexDirection:"column",gap:9,padding:"14px 8px"}}>
+          {abs.map(ab=>{const v=abScore(ab,attrs?.[ab.key])??0;return (
+            <div key={ab.key}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#8899aa",marginBottom:3}}><span>{ab.label}</span><span style={{color:col,fontWeight:700}}>{fmtVal(ab,attrs?.[ab.key])}</span></div>
+              <div style={{height:6,background:"#0d1b2a",borderRadius:3,overflow:"hidden"}}><div style={{width:`${v}%`,height:"100%",background:col}}/></div>
+            </div>
+          );})}
+          {n===0 && <div style={{fontSize:11,color:"#335577",textAlign:"center"}}>이 분류에 세부 축이 없습니다</div>}
+        </div>
+      );
+    }
+    const vals = abs.map(ab=>abScore(ab,attrs?.[ab.key])??0);
+    const path = vs => vs.map((v,i)=>{const p=polar(i,n,v);return `${i===0?"M":"L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ")+"Z";
+    return (
+      <svg width={size} height={size} style={{overflow:"visible"}}>
+        {[25,50,75,99].map(lvl=><polygon key={lvl} fill="none" stroke="#1e3a5f" strokeWidth={0.7} opacity={0.5} points={abs.map((_,i)=>{const p=polar(i,n,lvl);return `${p.x},${p.y}`;}).join(" ")} />)}
+        {abs.map((_,i)=>{const p=axisPt(i,n);return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#1e3a5f" strokeWidth={0.7} opacity={0.4}/>;})}
+        <path d={path(vals)} fill={col+"33"} stroke={col} strokeWidth={2}/>
+        {vals.map((v,i)=>{const p=polar(i,n,v);return <circle key={i} cx={p.x} cy={p.y} r={3} fill={col} stroke="#030c14" strokeWidth={1}/>;})}
+        {abs.map((ab,i)=>{const p=axisPt(i,n);const lx=cx+(p.x-cx)*1.2,ly=cy+(p.y-cy)*1.2;return <text key={i} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontSize={8.5} fill="#9bb8d4" fontFamily="'Barlow Condensed',sans-serif" fontWeight={700}>{ab.label}</text>;})}
+      </svg>
+    );
+  }
+
+  // ── 오버뷰: 전체 능력치를 그룹별 색상 페탈로 겹쳐 표시 ──
+  const axesList = [];
+  groups.forEach((g,gi)=>{ abilities.filter(a=>a.group===g.id).forEach(ab=>axesList.push({ab,gi,gid:g.id})); });
+  const n = axesList.length;
+  if(n < 3){
+    return (
+      <div style={{width:size,display:"flex",flexDirection:"column",gap:9,padding:"14px 8px"}}>
+        {groups.map((g,gi)=>{const v=groupScore(g.id,attrs,abilities);const col=groupColorAt(gi);return (
+          <div key={g.id} onClick={()=>onDrill&&onDrill(g.id)} style={{cursor:"pointer"}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}><span style={{color:col,fontWeight:700}}>{g.name} ▸</span><span style={{color:col,fontWeight:700}}>{v}</span></div>
+            <div style={{height:6,background:"#0d1b2a",borderRadius:3,overflow:"hidden"}}><div style={{width:`${v}%`,height:"100%",background:col}}/></div>
+          </div>
+        );})}
+      </div>
+    );
+  }
+  const vals = axesList.map(a=>abScore(a.ab, attrs?.[a.ab.key])??0);
+  const groupRanges = {};
+  axesList.forEach((a,i)=>{ (groupRanges[a.gid]=groupRanges[a.gid]||[]).push(i); });
+  return (
+    <svg width={size} height={size} style={{overflow:"visible"}}>
+      {[25,50,75,99].map(lvl=><polygon key={lvl} fill="none" stroke="#1e3a5f" strokeWidth={0.6} opacity={0.45} points={axesList.map((_,i)=>{const p=polar(i,n,lvl);return `${p.x},${p.y}`;}).join(" ")} />)}
+      {axesList.map((_,i)=>{const p=axisPt(i,n);return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#122a45" strokeWidth={0.6} opacity={0.5}/>;})}
+      {/* 그룹별 페탈(색상 겹침) */}
+      {groups.map((g,gi)=>{
+        const idxs=groupRanges[g.id]; if(!idxs||!idxs.length) return null;
+        const col=groupColorAt(gi);
+        const d = `M${cx},${cy} ` + idxs.map(i=>{const p=polar(i,n,vals[i]); return `L${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ") + " Z";
+        return <path key={g.id} d={d} fill={col+"3a"} stroke={col} strokeWidth={1.6} strokeLinejoin="round" style={{cursor:"pointer"}} onClick={()=>onDrill&&onDrill(g.id)}><title>{g.name} (클릭해서 세부 축 보기)</title></path>;
+      })}
+      {axesList.map((a,i)=>{const p=polar(i,n,vals[i]);return <circle key={i} cx={p.x} cy={p.y} r={2.2} fill={groupColorAt(a.gi)} />;})}
+      {/* 그룹 라벨(색상, 클릭→드릴다운) */}
+      {groups.map((g,gi)=>{
+        const idxs=groupRanges[g.id]; if(!idxs||!idxs.length) return null;
+        const mid=idxs[Math.floor(idxs.length/2)];
+        const p=axisPt(mid,n); const lx=cx+(p.x-cx)*1.26, ly=cy+(p.y-cy)*1.26;
+        return <text key={g.id} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontSize={11} fill={groupColorAt(gi)} fontFamily="'Oswald',sans-serif" fontWeight={700} style={{cursor:"pointer"}} onClick={()=>onDrill&&onDrill(g.id)}>{g.name}</text>;
+      })}
+    </svg>
+  );
+}
+
 // 단일 능력치의 스냅샷별 값 변화를 단위에 맞게 그리는 미니 라인차트 (방향 반영: 개선=초록)
 function AbilityGrowthLine({ab, history}){
   const pts = history.map(h => ({ label:h.label, raw: h.attrs?.[ab.key] }));
@@ -796,6 +882,7 @@ export default function App(){
   const [schema, setSchema] = useState(DEFAULT_SCHEMA); // 사용자 편집 가능한 능력치 스키마
   const [attrMgrOpen, setAttrMgrOpen] = useState(false); // 능력치 관리 모달
   const [radarEditOpen, setRadarEditOpen] = useState(false); // 선수별 레이더 편집 모달
+  const [radarGroup, setRadarGroup] = useState(null); // 그룹 레이더 드릴다운 대상(그룹 id) / null=오버뷰
 
   const [matches, setMatches] = useState([]);
   const [activeMatchId, setActiveMatchId] = useState(null);
@@ -1041,6 +1128,7 @@ export default function App(){
     return {arrow:"=", col:"#8899aa"};
   }
   const fmtAvg = (ab, v) => v==null ? "-" : (ab.unit ? `${Math.round(v*10)/10}${ab.unit}` : `${Math.round(v)}`);
+  useEffect(() => { setRadarGroup(null); }, [sel?.id]); // 선수 바꾸면 레이더는 오버뷰로
   const ovrVal = display ? ovr(display.attrs) : 0;
   const prevSnap = sel?.history?.length>=2 ? sel.history[sel.history.length-2] : null;
   const selTeam = display?.tid ? teamMap[display.tid] : null;
@@ -1247,7 +1335,8 @@ export default function App(){
   function handlePrintPlayer(){
     if(!display) return;
     const team = display.tid ? teamMap[display.tid] : null;
-    openPrintWindow(`${display.name} 프로필`, buildPlayerPrintBody(display, team, abilities, groups, Array.isArray(display.radar) ? display.radar : schema.radar));
+    const printRadar = groups.map(g => ({ id:g.id, label:g.name, keys:(abilitiesByGroup[g.id]||[]).map(a=>a.key) }));
+    openPrintWindow(`${display.name} 프로필`, buildPlayerPrintBody(display, team, abilities, groups, printRadar));
   }
 
   const NAV=["선수","팀 관리","베스트 11","경기 일정"];
@@ -1546,12 +1635,20 @@ export default function App(){
                       {display.photo && <button onClick={removeProfilePhoto} style={{background:"transparent",border:"1px solid #3a1a1a",color:"#cc6666",borderRadius:5,padding:"3px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer",marginBottom:10}}>사진 삭제</button>}
                       <input ref={profilePhotoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{setProfilePhoto(e.target.files[0]); e.target.value="";}} />
                       <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:6,display:"flex",alignItems:"center",gap:6}}>
-                        레이더 차트
-                        {usingCustomRadar && <span style={{fontSize:8,color:"#69f0ae",border:"1px solid #1e5a30",borderRadius:100,padding:"1px 6px",letterSpacing:0}}>선수 전용</span>}
+                        {radarGroup ? `${groups.find(g=>g.id===radarGroup)?.name||""} 세부 축` : "레이더 차트"}
                       </div>
-                      <Radar attrs={display.attrs} prev={prevSnap?.attrs} abilities={abilities} radar={playerRadar} />
-                      {prevSnap && <div style={{fontSize:9,color:"#ff9800",marginTop:3}}>── 이전 스냅샷 비교</div>}
-                      <button onClick={()=>setRadarEditOpen(true)} style={{marginTop:8,background:"transparent",border:"1px solid #1e3a5f",color:"#69a0d0",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>🎯 이 선수 레이더 편집</button>
+                      <GroupRadar attrs={display.attrs} groups={groups} abilities={abilities} drillGroup={radarGroup} onDrill={setRadarGroup} />
+                      {radarGroup
+                        ? <button onClick={()=>setRadarGroup(null)} style={{marginTop:8,background:"transparent",border:"1px solid #1e3a5f",color:"#88bbdd",borderRadius:5,padding:"5px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>← 전체 보기</button>
+                        : (
+                          <div style={{marginTop:8,display:"flex",gap:5,flexWrap:"wrap",justifyContent:"center"}}>
+                            {groups.map((g,gi)=>(
+                              <button key={g.id} onClick={()=>setRadarGroup(g.id)} style={{background:"transparent",border:`1px solid ${groupColorAt(gi)}`,color:groupColorAt(gi),borderRadius:100,padding:"2px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,cursor:"pointer"}}>● {g.name}</button>
+                            ))}
+                          </div>
+                        )
+                      }
+                      <div style={{fontSize:9,color:"#33507a",marginTop:5}}>{radarGroup?"위 항목이 이 분류의 세부 축입니다":"그룹(색)을 누르면 세부 축이 보입니다"}</div>
                       <div style={{marginTop:10,display:"flex",alignItems:"baseline",gap:6}}>
                         <span style={{fontSize:11,color:"#5577aa",fontWeight:700}}>OVR</span>
                         <span style={{fontSize:26,fontWeight:900,color:getColor(ovrVal),fontFamily:"'Oswald',sans-serif"}}>{ovrVal}</span>
@@ -2043,30 +2140,9 @@ export default function App(){
               ))}
               <button onClick={addGroup} style={{background:"#1e3a5f",border:"1px solid #2a5580",color:"#88bbdd",borderRadius:6,padding:"7px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 그룹 추가</button>
 
-              {/* ── 레이더 축 설정 (FM식 자유 구성) ── */}
-              <div style={{marginTop:20,paddingTop:14,borderTop:"1px solid #1e3a5f"}}>
-                <div style={{fontFamily:"'Oswald',sans-serif",fontSize:14,fontWeight:700,color:"#4499dd",marginBottom:6}}>📊 레이더 축 설정</div>
-                <div style={{fontSize:11,color:"#5a7a9a",marginBottom:12,lineHeight:1.6}}>레이더에 표시할 축을 자유롭게 구성하세요. 각 축은 <b style={{color:"#88bbdd"}}>이름</b>과 <b style={{color:"#88bbdd"}}>포함할 능력치</b>로 이뤄지며, 축 값은 선택한 능력치들의 점수 평균입니다. (3축 이상 권장)</div>
-                {(schema.radar||[]).map(ax=>(
-                  <div key={ax.id} style={{border:"1px solid #0d2340",borderRadius:8,marginBottom:10,overflow:"hidden"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,background:"#0d1b2a",padding:"8px 10px",flexWrap:"wrap"}}>
-                      <span style={{fontSize:9,color:"#4a6a8a"}}>축</span>
-                      <input value={ax.label} onChange={e=>renameRadarAxis(ax.id,e.target.value)} style={{...INPUT,fontWeight:700,width:150}} />
-                      <span style={{fontSize:10,color:"#4a6a8a"}}>{ax.keys.length}개 능력치</span>
-                      <button onClick={()=>{ if(window.confirm(`'${ax.label}' 축을 삭제할까요?`)) deleteRadarAxis(ax.id); }} style={{marginLeft:"auto",background:"transparent",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"4px 8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>축 삭제</button>
-                    </div>
-                    <div style={{padding:"8px 10px",display:"flex",flexWrap:"wrap",gap:5}}>
-                      {abilities.map(ab=>{
-                        const on = ax.keys.includes(ab.key);
-                        return (
-                          <button key={ab.key} onClick={()=>toggleRadarKey(ax.id,ab.key)} style={{background:on?"#1e6ba8":"transparent",border:on?"1px solid #2a8ad4":"1px solid #1e3a5f",color:on?"#fff":"#5577aa",borderRadius:100,padding:"3px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>{on?"✓ ":""}{ab.label}</button>
-                        );
-                      })}
-                      {abilities.length===0 && <span style={{fontSize:11,color:"#335577"}}>능력치가 없습니다</span>}
-                    </div>
-                  </div>
-                ))}
-                <button onClick={addRadarAxis} style={{background:"#1e3a5f",border:"1px solid #2a5580",color:"#88bbdd",borderRadius:6,padding:"7px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 축 추가</button>
+              {/* 레이더는 이제 그룹(기술/신체/정신…) 기준으로 자동 구성됩니다 */}
+              <div style={{marginTop:18,paddingTop:12,borderTop:"1px solid #1e3a5f",fontSize:11,color:"#5a7a9a",lineHeight:1.6}}>
+                📊 레이더는 위 <b style={{color:"#88bbdd"}}>그룹(기술/신체/정신…)</b> 기준으로 색깔별로 겹쳐 표시되고, 프로필에서 그룹을 누르면 그 그룹의 세부 축(능력치)이 보입니다. 그룹·능력치를 여기서 편집하면 레이더에도 그대로 반영됩니다.
               </div>
             </div>
             <div style={{padding:"12px 18px",borderTop:"1px solid #1e3a5f",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
