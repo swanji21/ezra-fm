@@ -384,28 +384,28 @@ function GroupRadar({attrs, groups, abilities, drillGroup, onDrill}){
       </div>
     );
   }
-  const vals = axesList.map(a=>abScore(a.ab, attrs?.[a.ab.key])??0);
-  const groupRanges = {};
-  axesList.forEach((a,i)=>{ (groupRanges[a.gid]=groupRanges[a.gid]||[]).push(i); });
+  // 각 그룹을 "전체 원에 펼친 폴리곤"으로 그려 서로 겹쳐(superimpose) 표시
+  const activeGroups = groups.filter(g => abilities.some(a => a.group === g.id));
   return (
     <svg width={size} height={size} style={{overflow:"visible"}}>
-      {[25,50,75,99].map(lvl=><polygon key={lvl} fill="none" stroke="#1e3a5f" strokeWidth={0.6} opacity={0.45} points={axesList.map((_,i)=>{const p=polar(i,n,lvl);return `${p.x},${p.y}`;}).join(" ")} />)}
-      {axesList.map((_,i)=>{const p=axisPt(i,n);return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#122a45" strokeWidth={0.6} opacity={0.5}/>;})}
-      {/* 그룹별 페탈(색상 겹침) */}
-      {groups.map((g,gi)=>{
-        const idxs=groupRanges[g.id]; if(!idxs||!idxs.length) return null;
-        const col=groupColorAt(gi);
-        const d = `M${cx},${cy} ` + idxs.map(i=>{const p=polar(i,n,vals[i]); return `L${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ") + " Z";
-        return <path key={g.id} d={d} fill={col+"3a"} stroke={col} strokeWidth={1.6} strokeLinejoin="round" style={{cursor:"pointer"}} onClick={()=>onDrill&&onDrill(g.id)}><title>{g.name} (클릭해서 세부 축 보기)</title></path>;
+      {/* 참조 링 (그룹마다 축 수가 달라 공통 그리드는 원으로) */}
+      {[25,50,75,99].map(lvl=><circle key={lvl} cx={cx} cy={cy} r={r*lvl/99} fill="none" stroke="#1e3a5f" strokeWidth={0.6} opacity={0.4}/>)}
+      {/* 그룹별 폴리곤 겹침 */}
+      {activeGroups.map(g=>{
+        const gi = groups.indexOf(g);
+        const col = groupColorAt(gi);
+        const gAbs = abilities.filter(a=>a.group===g.id);
+        const m = gAbs.length;
+        const pts = gAbs.map((ab,i)=>{ const a=(Math.PI*2*i/m)-Math.PI/2; const v=abScore(ab,attrs?.[ab.key])??0; return {x:cx+r*(v/99)*Math.cos(a), y:cy+r*(v/99)*Math.sin(a)}; });
+        const d = pts.map((p,i)=>`${i===0?"M":"L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")+"Z";
+        return (
+          <g key={g.id} style={{cursor:"pointer"}} onClick={()=>onDrill&&onDrill(g.id)}>
+            <path d={d} fill={col+"26"} stroke={col} strokeWidth={1.9} strokeLinejoin="round"><title>{g.name} (클릭해서 세부 축 보기)</title></path>
+            {pts.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r={2} fill={col} />)}
+          </g>
+        );
       })}
-      {axesList.map((a,i)=>{const p=polar(i,n,vals[i]);return <circle key={i} cx={p.x} cy={p.y} r={2.2} fill={groupColorAt(a.gi)} />;})}
-      {/* 그룹 라벨(색상, 클릭→드릴다운) */}
-      {groups.map((g,gi)=>{
-        const idxs=groupRanges[g.id]; if(!idxs||!idxs.length) return null;
-        const mid=idxs[Math.floor(idxs.length/2)];
-        const p=axisPt(mid,n); const lx=cx+(p.x-cx)*1.26, ly=cy+(p.y-cy)*1.26;
-        return <text key={g.id} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontSize={11} fill={groupColorAt(gi)} fontFamily="'Oswald',sans-serif" fontWeight={700} style={{cursor:"pointer"}} onClick={()=>onDrill&&onDrill(g.id)}>{g.name}</text>;
-      })}
+      {activeGroups.length===0 && <text x={cx} y={cy} textAnchor="middle" fontSize={11} fill="#335577">능력치가 없습니다</text>}
     </svg>
   );
 }
@@ -1098,10 +1098,13 @@ export default function App(){
   // ── 평균 비교: 선택 선수를 비교 대상(전체/같은 포지션/같은 팀)의 평균과 견줌 ──
   const cmpPlayers = useMemo(() => {
     if(!display) return players;
-    if(cmpScope==="pos")  return players.filter(p => p.pos === display.pos);
-    if(cmpScope==="team") return players.filter(p => p.tid && p.tid === display.tid);
+    if(cmpScope==="pos")   return players.filter(p => p.pos === display.pos);
+    if(cmpScope==="team")  return players.filter(p => p.tid && p.tid === display.tid);
+    if(cmpScope==="age"){ const a=Number(display.age); return Number.isFinite(a) ? players.filter(p=>Number.isFinite(Number(p.age)) && Math.abs(Number(p.age)-a)<=1) : players; } // 같은 나이대(±1)
+    if(cmpScope==="gender"){ const g=display.gender||""; return g ? players.filter(p=>(p.gender||"")===g) : players; }
+    if(cmpScope==="level"){ const l=display.level||""; return l ? players.filter(p=>(p.level||"")===l) : players; } // 취미/전문 등 수준
     return players;
-  }, [players, cmpScope, display?.pos, display?.tid]);
+  }, [players, cmpScope, display?.pos, display?.tid, display?.age, display?.gender, display?.level]);
   const cmpAvg = useMemo(() => {
     const rawSum={}, scoreSum={}, cnt={};
     abilities.forEach(ab => { rawSum[ab.key]=0; scoreSum[ab.key]=0; cnt[ab.key]=0; });
@@ -1200,7 +1203,7 @@ export default function App(){
 
   function startAdd(){
     const seedAttrs = Object.fromEntries(abilities.map(a => [a.key, a.unit ? "" : 65]));
-    setNewP({id:Date.now(),name:"",pos:"ST",age:20,club:"",number:"",heightCm:"",weightKg:"",size:"",tid:teams[0]?.id||"",photo:null,attrs:seedAttrs,history:[]});
+    setNewP({id:Date.now(),name:"",pos:"ST",age:20,gender:"",level:"",club:"",number:"",heightCm:"",weightKg:"",size:"",tid:teams[0]?.id||"",photo:null,attrs:seedAttrs,history:[]});
     setAdding(true);
   }
   function saveNew(){
@@ -1539,6 +1542,18 @@ export default function App(){
                       {teams.map(t=><option key={t.id} value={t.id}>{t.badge} {t.name}</option>)}
                     </select>
                   </div>
+                  <div>
+                    <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>성별</div>
+                    <select value={newP.gender||""} onChange={e=>setNewP(p=>({...p,gender:e.target.value}))} style={INPUT}>
+                      {["","남","여"].map(o=><option key={o} value={o}>{o===""?"-":o}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>수준</div>
+                    <select value={newP.level||""} onChange={e=>setNewP(p=>({...p,level:e.target.value}))} style={INPUT}>
+                      {["","취미","전문"].map(o=><option key={o} value={o}>{o===""?"-":o}</option>)}
+                    </select>
+                  </div>
                 </div>
                 {groups.map(g=>(
                   <div key={g.id} style={{marginBottom:12}}>
@@ -1593,6 +1608,18 @@ export default function App(){
                           {editing
                             ? <input type={k==="club"||k==="size"?"text":"number"} value={editD[k]} onChange={e=>setEditD(d=>({...d,[k]:e.target.value}))} style={{background:"transparent",border:"none",color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,width:70,outline:"none"}} />
                             : <span style={{fontSize:12,fontWeight:700,color:"#4499dd"}}>{display[k]}{display[k]!==""&&display[k]!=null?unit:""}</span>
+                          }
+                        </div>
+                      ))}
+                      {/* 성별 / 수준(취미·전문) — 비교 기준 */}
+                      {[{k:"gender",l:"성별",opts:["","남","여"]},{k:"level",l:"수준",opts:["","취미","전문"]}].map(({k,l,opts})=>(
+                        <div key={k} style={{background:"#0d1b2a",borderRadius:4,padding:"3px 8px"}}>
+                          <span style={{fontSize:9,color:"#335577"}}>{l} </span>
+                          {editing
+                            ? <select value={editD[k]||""} onChange={e=>setEditD(d=>({...d,[k]:e.target.value}))} style={{background:"transparent",border:"none",color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,outline:"none"}}>
+                                {opts.map(o=><option key={o} value={o}>{o===""?"-":o}</option>)}
+                              </select>
+                            : <span style={{fontSize:12,fontWeight:700,color:"#4499dd"}}>{display[k]||"-"}</span>
                           }
                         </div>
                       ))}
@@ -1657,7 +1684,7 @@ export default function App(){
                       {/* 평균 비교 대상 선택 */}
                       <div style={{marginTop:8,display:"flex",alignItems:"center",gap:4,flexWrap:"wrap",justifyContent:"center"}}>
                         <span style={{fontSize:9,color:"#4a6a8a"}}>비교</span>
-                        {[["all","전체"],["pos","같은 포지션"],["team","같은 팀"]].map(([v,l])=>(
+                        {[["all","전체"],["pos","포지션"],["team","팀"],["age","나이"],["gender","성별"],["level","수준"]].map(([v,l])=>(
                           <button key={v} onClick={()=>setCmpScope(v)} style={{background:cmpScope===v?"#1e3a5f":"transparent",border:cmpScope===v?"1px solid #2a5580":"1px solid #0d2340",color:cmpScope===v?"#88bbdd":"#4477aa",borderRadius:5,padding:"2px 8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,cursor:"pointer"}}>{l}</button>
                         ))}
                       </div>
