@@ -210,7 +210,7 @@ function mkPlayer(id,name,pos,age,club,tid,meta,bias){
 }
 
 const INIT_TEAMS = [
-  {id:"t1",name:"FC 서울스타",badge:"⭐",color:"#1e6ba8"},
+  {id:"t1",name:"FC 서울스타",badge:"⭐",color:"#1e6fbf"},
   {id:"t2",name:"부산 유나이티드",badge:"🔥",color:"#c0392b"},
 ];
 
@@ -225,7 +225,7 @@ const INIT_PLAYERS = [
 
 // ---------- UI atoms ----------
 
-const INPUT = {background:"#0d1b2a",border:"1px solid #1e3a5f",color:"#e0f0ff",borderRadius:4,padding:"5px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,width:"100%",outline:"none"};
+const INPUT = {background:"#0c1f38",border:"1px solid #1d4a86",color:"#e6f1ff",borderRadius:4,padding:"5px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,width:"100%",outline:"none"};
 
 function GoogleIcon(){
   return (
@@ -260,7 +260,7 @@ function Avatar({photo,name,size,color,ovrVal,mode,number,pos}){
 
 function Bar({ab, value, editing, onChange}){
   const score = abScore(ab, value);                 // 0~100 정규화 점수 (값 없으면 null)
-  const col = score!=null ? getColor(score) : "#33507a";
+  const col = score!=null ? getColor(score) : "#2f5c99";
   return (
     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
       <span style={{width:92,fontSize:11,color:"#8899aa",fontFamily:"'Barlow Condensed',sans-serif",flexShrink:0,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={ab.label}>
@@ -274,7 +274,7 @@ function Bar({ab, value, editing, onChange}){
             {ab.direction==="low" && <span style={{fontSize:8,color:"#ff9800",flexShrink:0}} title="낮을수록 좋은 지표">↓좋음</span>}
           </>
         : <>
-            <div style={{flex:1,height:5,background:"#0d1b2a",borderRadius:3,overflow:"hidden"}}>
+            <div style={{flex:1,height:5,background:"#0c1f38",borderRadius:3,overflow:"hidden"}}>
               <div style={{width:`${score??0}%`,height:"100%",background:col,borderRadius:3}} />
             </div>
             <span style={{minWidth:44,textAlign:"right",fontSize:12,fontWeight:700,color:col,fontFamily:"'Barlow Condensed',sans-serif"}}>{fmtVal(ab, value)}</span>
@@ -295,10 +295,10 @@ function Radar({attrs, prev, abilities, radar}){
         {axes.map(ax=>{const v=radarAxisScore(ax,attrs,abilities); return (
           <div key={ax.id}>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#8899aa",marginBottom:3}}><span>{ax.label}</span><span style={{color:getColor(v),fontWeight:700}}>{v}</span></div>
-            <div style={{height:6,background:"#0d1b2a",borderRadius:3,overflow:"hidden"}}><div style={{width:`${v}%`,height:"100%",background:getColor(v)}}/></div>
+            <div style={{height:6,background:"#0c1f38",borderRadius:3,overflow:"hidden"}}><div style={{width:`${v}%`,height:"100%",background:getColor(v)}}/></div>
           </div>
         );})}
-        {n===0 && <div style={{fontSize:11,color:"#335577",textAlign:"center"}}>레이더 축이 없습니다</div>}
+        {n===0 && <div style={{fontSize:11,color:"#4a6ea0",textAlign:"center"}}>레이더 축이 없습니다</div>}
       </div>
     );
   }
@@ -310,13 +310,13 @@ function Radar({attrs, prev, abilities, radar}){
   return (
     <svg width={size} height={size} style={{overflow:"visible"}}>
       {[25,50,75,99].map(lvl => (
-        <polygon key={lvl} fill="none" stroke="#1e3a5f" strokeWidth={0.7} opacity={0.5}
+        <polygon key={lvl} fill="none" stroke="#1d4a86" strokeWidth={0.7} opacity={0.5}
           points={axes.map((_,i)=>{const p=pt(i,lvl); return `${p.x},${p.y}`;}).join(" ")} />
       ))}
-      {axes.map((_,i)=>{const p=pt(i,99); return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#1e3a5f" strokeWidth={0.7} opacity={0.4} />;  })}
+      {axes.map((_,i)=>{const p=pt(i,99); return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#1d4a86" strokeWidth={0.7} opacity={0.4} />;  })}
       {pvals && <path d={path(pvals)} fill="rgba(255,152,0,0.1)" stroke="#ff9800" strokeWidth={1.2} strokeDasharray="4 3" />}
       <path d={path(vals)} fill="rgba(30,107,168,0.18)" stroke="#4499dd" strokeWidth={2} />
-      {vals.map((v,i)=>{const p=pt(i,v); return <circle key={i} cx={p.x} cy={p.y} r={3.5} fill={getColor(v)} stroke="#030c14" strokeWidth={1} />;  })}
+      {vals.map((v,i)=>{const p=pt(i,v); return <circle key={i} cx={p.x} cy={p.y} r={3.5} fill={getColor(v)} stroke="#04101f" strokeWidth={1} />;  })}
       {axes.map((ax,i)=>{const p=pt(i,99); const lx=cx+(p.x-cx)*1.24, ly=cy+(p.y-cy)*1.24;
         return <text key={ax.id||i} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="#7799bb" fontFamily="'Barlow Condensed',sans-serif" fontWeight={700}>{ax.label}</text>;
       })}
@@ -348,10 +348,10 @@ function GroupRadar({attrs, groups, abilities, drillGroup, onDrill}){
           {abs.map(ab=>{const v=abScore(ab,attrs?.[ab.key])??0;return (
             <div key={ab.key}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#8899aa",marginBottom:3}}><span>{ab.label}</span><span style={{color:col,fontWeight:700}}>{fmtVal(ab,attrs?.[ab.key])}</span></div>
-              <div style={{height:6,background:"#0d1b2a",borderRadius:3,overflow:"hidden"}}><div style={{width:`${v}%`,height:"100%",background:col}}/></div>
+              <div style={{height:6,background:"#0c1f38",borderRadius:3,overflow:"hidden"}}><div style={{width:`${v}%`,height:"100%",background:col}}/></div>
             </div>
           );})}
-          {n===0 && <div style={{fontSize:11,color:"#335577",textAlign:"center"}}>이 분류에 세부 축이 없습니다</div>}
+          {n===0 && <div style={{fontSize:11,color:"#4a6ea0",textAlign:"center"}}>이 분류에 세부 축이 없습니다</div>}
         </div>
       );
     }
@@ -359,10 +359,10 @@ function GroupRadar({attrs, groups, abilities, drillGroup, onDrill}){
     const path = vs => vs.map((v,i)=>{const p=polar(i,n,v);return `${i===0?"M":"L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`;}).join(" ")+"Z";
     return (
       <svg width={size} height={size} style={{overflow:"visible"}}>
-        {[25,50,75,99].map(lvl=><polygon key={lvl} fill="none" stroke="#1e3a5f" strokeWidth={0.7} opacity={0.5} points={abs.map((_,i)=>{const p=polar(i,n,lvl);return `${p.x},${p.y}`;}).join(" ")} />)}
-        {abs.map((_,i)=>{const p=axisPt(i,n);return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#1e3a5f" strokeWidth={0.7} opacity={0.4}/>;})}
+        {[25,50,75,99].map(lvl=><polygon key={lvl} fill="none" stroke="#1d4a86" strokeWidth={0.7} opacity={0.5} points={abs.map((_,i)=>{const p=polar(i,n,lvl);return `${p.x},${p.y}`;}).join(" ")} />)}
+        {abs.map((_,i)=>{const p=axisPt(i,n);return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#1d4a86" strokeWidth={0.7} opacity={0.4}/>;})}
         <path d={path(vals)} fill={col+"33"} stroke={col} strokeWidth={2}/>
-        {vals.map((v,i)=>{const p=polar(i,n,v);return <circle key={i} cx={p.x} cy={p.y} r={3} fill={col} stroke="#030c14" strokeWidth={1}/>;})}
+        {vals.map((v,i)=>{const p=polar(i,n,v);return <circle key={i} cx={p.x} cy={p.y} r={3} fill={col} stroke="#04101f" strokeWidth={1}/>;})}
         {abs.map((ab,i)=>{const p=axisPt(i,n);const lx=cx+(p.x-cx)*1.2,ly=cy+(p.y-cy)*1.2;return <text key={i} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontSize={8.5} fill="#9bb8d4" fontFamily="'Barlow Condensed',sans-serif" fontWeight={700}>{ab.label}</text>;})}
       </svg>
     );
@@ -378,7 +378,7 @@ function GroupRadar({attrs, groups, abilities, drillGroup, onDrill}){
         {groups.map((g,gi)=>{const v=groupScore(g.id,attrs,abilities);const col=groupColorAt(gi);return (
           <div key={g.id} onClick={()=>onDrill&&onDrill(g.id)} style={{cursor:"pointer"}}>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}><span style={{color:col,fontWeight:700}}>{g.name} ▸</span><span style={{color:col,fontWeight:700}}>{v}</span></div>
-            <div style={{height:6,background:"#0d1b2a",borderRadius:3,overflow:"hidden"}}><div style={{width:`${v}%`,height:"100%",background:col}}/></div>
+            <div style={{height:6,background:"#0c1f38",borderRadius:3,overflow:"hidden"}}><div style={{width:`${v}%`,height:"100%",background:col}}/></div>
           </div>
         );})}
       </div>
@@ -389,7 +389,7 @@ function GroupRadar({attrs, groups, abilities, drillGroup, onDrill}){
   return (
     <svg width={size} height={size} style={{overflow:"visible"}}>
       {/* 참조 링 (그룹마다 축 수가 달라 공통 그리드는 원으로) */}
-      {[25,50,75,99].map(lvl=><circle key={lvl} cx={cx} cy={cy} r={r*lvl/99} fill="none" stroke="#1e3a5f" strokeWidth={0.6} opacity={0.4}/>)}
+      {[25,50,75,99].map(lvl=><circle key={lvl} cx={cx} cy={cy} r={r*lvl/99} fill="none" stroke="#1d4a86" strokeWidth={0.6} opacity={0.4}/>)}
       {/* 그룹별 폴리곤 겹침 */}
       {activeGroups.map(g=>{
         const gi = groups.indexOf(g);
@@ -405,7 +405,7 @@ function GroupRadar({attrs, groups, abilities, drillGroup, onDrill}){
           </g>
         );
       })}
-      {activeGroups.length===0 && <text x={cx} y={cy} textAnchor="middle" fontSize={11} fill="#335577">능력치가 없습니다</text>}
+      {activeGroups.length===0 && <text x={cx} y={cy} textAnchor="middle" fontSize={11} fill="#4a6ea0">능력치가 없습니다</text>}
     </svg>
   );
 }
@@ -427,14 +427,14 @@ function AbilityGrowthLine({ab, history}){
   const same = last===first;
   const trendCol = same ? "#8899aa" : improved ? "#00e676" : "#ef5350";
   return (
-    <div style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid #0d2340"}}>
+    <div style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid #123258"}}>
       <div style={{width:82,flexShrink:0}}>
-        <div style={{fontSize:12,fontWeight:700,color:"#e0f0ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={ab.label}>{ab.label}</div>
+        <div style={{fontSize:12,fontWeight:700,color:"#e6f1ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={ab.label}>{ab.label}</div>
         <div style={{fontSize:9,color:"#4a6a8a"}}>{ab.direction==="low"?"낮을수록↑":"높을수록↑"}</div>
       </div>
       <svg width={W} height={H} style={{flex:1,maxWidth:W}}>
         <path d={seg.join(" ")} fill="none" stroke="#4499dd" strokeWidth={2} strokeLinejoin="round" />
-        {nums.map((v,i)=> v==null ? null : <circle key={i} cx={xf(i)} cy={yf(v)} r={3} fill="#4499dd" stroke="#030c14" strokeWidth={1} />)}
+        {nums.map((v,i)=> v==null ? null : <circle key={i} cx={xf(i)} cy={yf(v)} r={3} fill="#4499dd" stroke="#04101f" strokeWidth={1} />)}
         <text x={xf(nums.length-1)+6} y={yf(last)+3} fontSize={11} fontWeight={700} fill={trendCol} fontFamily="'Barlow Condensed',sans-serif">{fmtVal(ab,last)}</text>
       </svg>
     </div>
@@ -442,7 +442,7 @@ function AbilityGrowthLine({ab, history}){
 }
 
 function GrowthLine({history, abilities}){
-  if(!history||history.length<2) return <p style={{color:"#335577",fontSize:12}}>스냅샷 2개 이상 필요</p>;
+  if(!history||history.length<2) return <p style={{color:"#4a6ea0",fontSize:12}}>스냅샷 2개 이상 필요</p>;
   const W=360,H=100,pl=32,pr=10,pt2=14,pb=26;
   const iW=W-pl-pr, iH=H-pt2-pb;
   const ov = h => ovrFrom(h.attrs, abilities);
@@ -454,14 +454,14 @@ function GrowthLine({history, abilities}){
   const area = d+` L${xf(history.length-1).toFixed(1)},${(pt2+iH).toFixed(1)} L${pl},${(pt2+iH).toFixed(1)} Z`;
   return (
     <svg width={W} height={H} style={{width:"100%",maxWidth:W}}>
-      {[0,0.5,1].map(t=>{const y=pt2+iH*t; return <line key={t} x1={pl} y1={y} x2={pl+iW} y2={y} stroke="#1e3a5f" strokeWidth={0.6} strokeDasharray="4 3" />;  })}
+      {[0,0.5,1].map(t=>{const y=pt2+iH*t; return <line key={t} x1={pl} y1={y} x2={pl+iW} y2={y} stroke="#1d4a86" strokeWidth={0.6} strokeDasharray="4 3" />;  })}
       <path d={area} fill="rgba(30,107,168,0.1)" />
       <path d={d} fill="none" stroke="#4499dd" strokeWidth={2} strokeLinejoin="round" />
       {history.map((h,i)=>{const v=ov(h),x=xf(i),y=yf(v); return (
         <g key={i}>
-          <circle cx={x} cy={y} r={4} fill={getColor(v)} stroke="#030c14" strokeWidth={1.5} />
+          <circle cx={x} cy={y} r={4} fill={getColor(v)} stroke="#04101f" strokeWidth={1.5} />
           <text x={x} y={y-9} textAnchor="middle" fontSize={9} fill={getColor(v)} fontFamily="'Barlow Condensed',sans-serif" fontWeight={700}>{v}</text>
-          <text x={x} y={pt2+iH+14} textAnchor="middle" fontSize={8} fill="#335577" fontFamily="'Barlow Condensed',sans-serif">{h.label}</text>
+          <text x={x} y={pt2+iH+14} textAnchor="middle" fontSize={8} fill="#4a6ea0" fontFamily="'Barlow Condensed',sans-serif">{h.label}</text>
         </g>
       );  })}
     </svg>
@@ -600,7 +600,7 @@ function Pitch({formation,lineup,players,onSlot,selSlot,slotPositions,onDragEnd,
                 )
               }
             </div>
-            <div style={{marginTop:2,background:"rgba(3,12,20,0.85)",borderRadius:3,padding:"1px 5px",fontSize:9,fontWeight:700,color:pl?"#e0f0ff":"#4477aa",fontFamily:"'Barlow Condensed',sans-serif",whiteSpace:"nowrap",maxWidth:56,overflow:"hidden",textOverflow:"ellipsis",textAlign:"center"}}>
+            <div style={{marginTop:2,background:"rgba(3,12,20,0.85)",borderRadius:3,padding:"1px 5px",fontSize:9,fontWeight:700,color:pl?"#e6f1ff":"#4f82c4",fontFamily:"'Barlow Condensed',sans-serif",whiteSpace:"nowrap",maxWidth:56,overflow:"hidden",textOverflow:"ellipsis",textAlign:"center"}}>
               {pl?pl.name:curPos}
             </div>
           </div>
@@ -689,7 +689,7 @@ function pitchSvgForPrint(formationName, lineup, players, slotPositions, slotPos
     const svgX = pos.x;
     const svgY = pos.y * 1.58;
     // 배치된 선수는 OVR 색, 빈 슬롯은 회색 — 화면과 동일한 색 체계
-    const c = p ? getColor(ovrFrom(p.attrs, abilities)) : "#5a7a9a";
+    const c = p ? getColor(ovrFrom(p.attrs, abilities)) : "#6f97c4";
     const inner = num || (p ? "" : "·");
     return `<circle cx="${svgX}" cy="${svgY}" r="4.6" fill="rgba(6,20,12,0.55)" stroke="${c}" stroke-width="1" />`
       + `<text x="${svgX}" y="${(svgY+1.5).toFixed(1)}" text-anchor="middle" font-size="4.2" font-weight="700" fill="${c}">${inner}</text>`
@@ -861,7 +861,7 @@ export default function App(){
   const [newP, setNewP] = useState(null);
   const [fTeam, setFTeam] = useState("all");
   const [search, setSearch] = useState("");
-  const [newTeam, setNewTeam] = useState({name:"",badge:"🏆",color:"#1e6ba8"});
+  const [newTeam, setNewTeam] = useState({name:"",badge:"🏆",color:"#1e6fbf"});
   const [addTeam, setAddTeam] = useState(false);
   const [snapModal, setSnapModal] = useState(false);
   const [snapLabel, setSnapLabel] = useState("");
@@ -1222,7 +1222,7 @@ export default function App(){
   function saveTeamFn(){
     if(!newTeam.name.trim()) return;
     setTeams(ts=>[...ts,{id:"t"+Date.now(),...newTeam}]);
-    setAddTeam(false); setNewTeam({name:"",badge:"🏆",color:"#1e6ba8"});
+    setAddTeam(false); setNewTeam({name:"",badge:"🏆",color:"#1e6fbf"});
   }
   function delTeam(tid){ setTeams(ts=>ts.filter(t=>t.id!==tid)); setPlayers(ps=>ps.map(p=>p.tid===tid?{...p,tid:""}:p)); }
   function assignTeam(pid,tid){ setPlayers(ps=>ps.map(p=>p.id===pid?{...p,tid}:p)); if(sel?.id===pid) setSel(s=>({...s,tid})); }
@@ -1345,32 +1345,32 @@ export default function App(){
   const NAV=["선수","팀 관리","베스트 11","경기 일정"];
   const DTABS=["개요","능력치","성장 추적"];
 
-  const cardStyle = {background:"#071525",border:"1px solid #0d2340",borderRadius:8,padding:"12px 15px"};
+  const cardStyle = {background:"#0a1c34",border:"1px solid #123258",borderRadius:8,padding:"12px 15px"};
 
   function renderPlayerRow(p){
     const v=ovr(p.attrs), isSel=sel?.id===p.id;
-    const tc=p.tid?teamMap[p.tid]?.color:"#1e6ba8";
+    const tc=p.tid?teamMap[p.tid]?.color:"#1e6fbf";
     return (
       <div key={p.id} onClick={()=>{setSel(p);setEditing(false);setEditD(null);setDtab("개요");}}
-        style={{background:isSel?"#0d2340":"#071525",border:isSel?`1px solid ${tc}`:"1px solid #0d2340",borderLeft:isSel?`3px solid ${tc}`:"3px solid transparent",borderRadius:6,padding:"9px 11px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,marginBottom:5,transition:"all 0.15s"}}>
+        style={{background:isSel?"#123258":"#0a1c34",border:isSel?`1px solid ${tc}`:"1px solid #123258",borderLeft:isSel?`3px solid ${tc}`:"3px solid transparent",borderRadius:6,padding:"9px 11px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,marginBottom:5,transition:"all 0.15s"}}>
         <Avatar photo={p.photo} name={p.name} size={36} ovrVal={v} color={getColor(v)} mode={cardMode} number={p.number} pos={p.pos} />
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:13,color:"#e0f0ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
-          <div style={{fontSize:10,color:"#5577aa"}}>{p.club}</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:13,color:"#e6f1ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
+          <div style={{fontSize:10,color:"#6f97c4"}}>{p.club}</div>
         </div>
-        <div style={{background:"#0d2340",borderRadius:3,padding:"2px 6px",fontSize:11,fontWeight:700,color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif",flexShrink:0}}>{p.pos}</div>
+        <div style={{background:"#123258",borderRadius:3,padding:"2px 6px",fontSize:11,fontWeight:700,color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif",flexShrink:0}}>{p.pos}</div>
       </div>
     );
   }
 
   return (
-    <div className="app-shell" style={{background:"#030c14",fontFamily:"'Barlow Condensed',sans-serif",color:"#e0f0ff",display:"flex",flexDirection:"column"}}>
+    <div className="app-shell" style={{background:"#04101f",fontFamily:"'Barlow Condensed',sans-serif",color:"#e6f1ff",display:"flex",flexDirection:"column"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Oswald:wght@400;700&display=swap');
         *{box-sizing:border-box}
         ::-webkit-scrollbar{width:4px}
-        ::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:2px}
-        select option{background:#0d1b2a}
+        ::-webkit-scrollbar-thumb{background:#1d4a86;border-radius:2px}
+        select option{background:#0c1f38}
         .app-shell{height:100vh;height:100dvh;}
         .sidebar-toggle-btn{display:none;}
         @media (max-width:480px){
@@ -1383,7 +1383,7 @@ export default function App(){
 
           .sidebar-toggle-btn{display:flex !important;}
           .player-layout{flex-direction:column !important;height:auto !important;overflow:visible !important;}
-          .player-sidebar{width:100% !important;height:42vh !important;border-right:none !important;border-bottom:1px solid #0d2340;}
+          .player-sidebar{width:100% !important;height:42vh !important;border-right:none !important;border-bottom:1px solid #123258;}
           .player-sidebar.collapsed{display:none !important;}
           .player-main{height:auto !important;overflow-y:visible !important;padding:12px 14px !important;}
           .player-header-card{flex-wrap:wrap !important;}
@@ -1393,7 +1393,7 @@ export default function App(){
 
           .best11-layout{flex-direction:column !important;height:auto !important;overflow:visible !important;}
           .best11-pitch-col{flex:none !important;width:100% !important;overflow-y:visible !important;padding:12px !important;}
-          .best11-picker-col{flex:none !important;width:100% !important;border-left:none !important;border-top:1px solid #0d2340;overflow:visible !important;}
+          .best11-picker-col{flex:none !important;width:100% !important;border-left:none !important;border-top:1px solid #123258;overflow:visible !important;}
           .best11-picker-col > div{overflow-y:visible !important;}
 
           button{min-height:40px;padding-top:8px !important;padding-bottom:8px !important;}
@@ -1402,12 +1402,12 @@ export default function App(){
       `}</style>
 
       {/* HEADER */}
-      <div className="app-header" style={{background:"linear-gradient(90deg,#071525,#0a1e35)",borderBottom:"2px solid #1e3a5f",padding:"9px 18px",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+      <div className="app-header" style={{background:"linear-gradient(90deg,#071c34,#0a2547)",borderBottom:"2px solid #f5b133",padding:"9px 18px",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
 
 
         <div>
-          <div className="app-title-main" style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700,letterSpacing:2}}>EZRA FOOTBALL MANAGER</div>
-          <div style={{fontSize:10,color:"#e0f0ff",fontWeight:700,letterSpacing:0.5}}>에스라 풋볼 매니저 · 선수 능력치 관리</div>
+          <div className="app-title-main" style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700,letterSpacing:2,color:"#f5b133"}}>EZRA FOOTBALL MANAGER</div>
+          <div style={{fontSize:10,color:"#e6f1ff",fontWeight:700,letterSpacing:0.5}}>에스라 풋볼 매니저 · 선수 능력치 관리</div>
         </div>
         <div className="nav-row" style={{display:"flex",gap:3,marginLeft:16,flexWrap:"wrap"}}>
           {NAV.map(n=>(
@@ -1420,25 +1420,25 @@ export default function App(){
                 setSlotPositions({}); setSlotPosOverrides({}); setBench([]); setSelSlot(null);
               }
               setNav(n);
-            }} style={{background:nav===n?"#1e6ba8":"transparent",border:nav===n?"1px solid #2a8ad4":"1px solid #1e3a5f",color:nav===n?"#fff":"#5577aa",borderRadius:5,padding:"5px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+            }} style={{background:nav===n?"#f5b133":"transparent",border:nav===n?"1px solid #f5b133":"1px solid #1d4a86",color:nav===n?"#04101f":"#6f97c4",borderRadius:5,padding:"5px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>
               {n==="베스트 11"?"🏆 "+n:n==="경기 일정"?"📅 "+n:n}
             </button>
           ))}
         </div>
-        <div className="card-mode-toggle" style={{display:"flex",gap:2,background:"#0d1b2a",border:"1px solid #1e3a5f",borderRadius:5,padding:2}}>
-          <button onClick={()=>setCardMode("stats")} style={{background:cardMode==="stats"?"#1e6ba8":"transparent",border:"none",color:cardMode==="stats"?"#fff":"#5577aa",borderRadius:4,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>능력치</button>
-          <button onClick={()=>setCardMode("number")} style={{background:cardMode==="number"?"#1e6ba8":"transparent",border:"none",color:cardMode==="number"?"#fff":"#5577aa",borderRadius:4,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>등번호</button>
-          <button onClick={()=>setCardMode("position")} style={{background:cardMode==="position"?"#1e6ba8":"transparent",border:"none",color:cardMode==="position"?"#fff":"#5577aa",borderRadius:4,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>포지션</button>
+        <div className="card-mode-toggle" style={{display:"flex",gap:2,background:"#0c1f38",border:"1px solid #1d4a86",borderRadius:5,padding:2}}>
+          <button onClick={()=>setCardMode("stats")} style={{background:cardMode==="stats"?"#1e6fbf":"transparent",border:"none",color:cardMode==="stats"?"#fff":"#6f97c4",borderRadius:4,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>능력치</button>
+          <button onClick={()=>setCardMode("number")} style={{background:cardMode==="number"?"#1e6fbf":"transparent",border:"none",color:cardMode==="number"?"#fff":"#6f97c4",borderRadius:4,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>등번호</button>
+          <button onClick={()=>setCardMode("position")} style={{background:cardMode==="position"?"#1e6fbf":"transparent",border:"none",color:cardMode==="position"?"#fff":"#6f97c4",borderRadius:4,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>포지션</button>
         </div>
-        <button onClick={()=>setAttrMgrOpen(true)} title="능력치 항목 관리" style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"5px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>⚙ 능력치</button>
-        <span className="player-count-label" style={{marginLeft:"auto",fontSize:10,color:"#335577"}}>선수 {players.length}명 · 팀 {teams.length}개</span>
+        <button onClick={()=>setAttrMgrOpen(true)} title="능력치 항목 관리" style={{background:"transparent",border:"1px solid #1d4a86",color:"#6f97c4",borderRadius:5,padding:"5px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>⚙ 능력치</button>
+        <span className="player-count-label" style={{marginLeft:"auto",fontSize:10,color:"#4a6ea0"}}>선수 {players.length}명 · 팀 {teams.length}개</span>
 
         {!authLoading && (user ? (
           <div className="auth-controls" style={{display:"flex",alignItems:"center",gap:8}}>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               {user.photoURL
                 ? <img src={user.photoURL} alt={user.displayName||"user"} referrerPolicy="no-referrer" style={{width:22,height:22,borderRadius:"50%"}} />
-                : <div style={{width:22,height:22,borderRadius:"50%",background:"#1e3a5f"}} />
+                : <div style={{width:22,height:22,borderRadius:"50%",background:"#1d4a86"}} />
               }
               <span style={{fontSize:11,color:"#8899aa",maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.displayName||user.email}</span>
             </div>
@@ -1450,7 +1450,7 @@ export default function App(){
             ) : (
               <span style={{fontSize:9,color:cloudReady?"#69f0ae":"#ffb84d"}}>{cloudReady?"☁ 동기화됨":"⏳ 동기화 중…"}</span>
             )}
-            <button onClick={handleLogout} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"5px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>로그아웃</button>
+            <button onClick={handleLogout} style={{background:"transparent",border:"1px solid #1d4a86",color:"#6f97c4",borderRadius:5,padding:"5px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>로그아웃</button>
           </div>
         ) : (
           <button className="auth-controls" onClick={handleLogin} style={{display:"flex",alignItems:"center",gap:6,background:"#fff",border:"1px solid #ccc",color:"#333",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>
@@ -1463,21 +1463,21 @@ export default function App(){
       {/* ===== PLAYER VIEW ===== */}
       {nav==="선수" && (
         <div className="player-layout" style={{display:"flex",flex:1,minHeight:0,overflow:"hidden"}}>
-          <button className="sidebar-toggle-btn" onClick={()=>setSidebarOpen(v=>!v)} style={{alignItems:"center",justifyContent:"center",gap:6,background:"#0d2340",border:"none",borderBottom:"1px solid #1e3a5f",color:"#88bbdd",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+          <button className="sidebar-toggle-btn" onClick={()=>setSidebarOpen(v=>!v)} style={{alignItems:"center",justifyContent:"center",gap:6,background:"#123258",border:"none",borderBottom:"1px solid #1d4a86",color:"#8fbaf0",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>
             ☰ 선수 목록 {sidebarOpen?"숨기기":`보기 (${players.length})`}
           </button>
           {/* sidebar */}
-          <div className={`player-sidebar${sidebarOpen?"":" collapsed"}`} style={{width:232,background:"#050f1a",borderRight:"1px solid #0d2340",display:"flex",flexDirection:"column",flexShrink:0}}>
-            <div style={{padding:"9px 10px",borderBottom:"1px solid #0d2340",display:"flex",flexDirection:"column",gap:5}}>
+          <div className={`player-sidebar${sidebarOpen?"":" collapsed"}`} style={{width:232,background:"#050f1a",borderRight:"1px solid #123258",display:"flex",flexDirection:"column",flexShrink:0}}>
+            <div style={{padding:"9px 10px",borderBottom:"1px solid #123258",display:"flex",flexDirection:"column",gap:5}}>
               <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="검색…" style={{...INPUT,fontSize:11,padding:"5px 9px"}} />
               <select value={fTeam} onChange={e=>setFTeam(e.target.value)} style={{...INPUT,fontSize:11,padding:"4px 8px"}}>
                 <option value="all">전체 팀</option>
                 {teams.map(t=><option key={t.id} value={t.id}>{t.badge} {t.name}</option>)}
                 <option value="none">팀 없음</option>
               </select>
-              <div style={{display:"flex",gap:2,background:"#0d1b2a",border:"1px solid #1e3a5f",borderRadius:5,padding:2}}>
-                <button onClick={()=>setSidebarViewMode("all")} style={{flex:1,background:sidebarViewMode==="all"?"#1e6ba8":"transparent",border:"none",color:sidebarViewMode==="all"?"#fff":"#5577aa",borderRadius:4,padding:"4px 6px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,cursor:"pointer"}}>전체 보기</button>
-                <button onClick={()=>setSidebarViewMode("position")} style={{flex:1,background:sidebarViewMode==="position"?"#1e6ba8":"transparent",border:"none",color:sidebarViewMode==="position"?"#fff":"#5577aa",borderRadius:4,padding:"4px 6px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,cursor:"pointer"}}>포지션별 보기</button>
+              <div style={{display:"flex",gap:2,background:"#0c1f38",border:"1px solid #1d4a86",borderRadius:5,padding:2}}>
+                <button onClick={()=>setSidebarViewMode("all")} style={{flex:1,background:sidebarViewMode==="all"?"#1e6fbf":"transparent",border:"none",color:sidebarViewMode==="all"?"#fff":"#6f97c4",borderRadius:4,padding:"4px 6px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,cursor:"pointer"}}>전체 보기</button>
+                <button onClick={()=>setSidebarViewMode("position")} style={{flex:1,background:sidebarViewMode==="position"?"#1e6fbf":"transparent",border:"none",color:sidebarViewMode==="position"?"#fff":"#6f97c4",borderRadius:4,padding:"4px 6px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,cursor:"pointer"}}>포지션별 보기</button>
               </div>
             </div>
             <div style={{flex:1,overflowY:"auto",padding:"7px 9px"}}>
@@ -1488,22 +1488,22 @@ export default function App(){
                     if(groupPlayers.length===0) return null;
                     return (
                       <div key={g.key} style={{marginBottom:12}}>
-                        <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:5,borderBottom:"1px solid #0d2340",paddingBottom:3}}>{g.label} ({groupPlayers.length})</div>
+                        <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:5,borderBottom:"1px solid #123258",paddingBottom:3}}>{g.label} ({groupPlayers.length})</div>
                         {groupPlayers.map(renderPlayerRow)}
                       </div>
                     );
                   })}
-                  {filtered.length===0 && <p style={{color:"#335577",fontSize:12,textAlign:"center",marginTop:20}}>검색 결과 없음</p>}
+                  {filtered.length===0 && <p style={{color:"#4a6ea0",fontSize:12,textAlign:"center",marginTop:20}}>검색 결과 없음</p>}
                 </>
               ) : (
                 <>
                   {filtered.map(renderPlayerRow)}
-                  {filtered.length===0 && <p style={{color:"#335577",fontSize:12,textAlign:"center",marginTop:20}}>검색 결과 없음</p>}
+                  {filtered.length===0 && <p style={{color:"#4a6ea0",fontSize:12,textAlign:"center",marginTop:20}}>검색 결과 없음</p>}
                 </>
               )}
             </div>
-            <div style={{padding:"9px 10px",borderTop:"1px solid #0d2340"}}>
-              <button onClick={startAdd} style={{width:"100%",background:"linear-gradient(135deg,#1e6ba8,#0d4a7a)",border:"none",color:"#fff",borderRadius:5,padding:"8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>+ 선수 추가</button>
+            <div style={{padding:"9px 10px",borderTop:"1px solid #123258"}}>
+              <button onClick={startAdd} style={{width:"100%",background:"linear-gradient(135deg,#1e6fbf,#0d4a7a)",border:"none",color:"#fff",borderRadius:5,padding:"8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>+ 선수 추가</button>
             </div>
           </div>
 
@@ -1517,39 +1517,39 @@ export default function App(){
                 <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:14}}>
                   <div style={{position:"relative",cursor:"pointer"}} onClick={()=>photoRef.current?.click()}>
                     <Avatar photo={newP.photo} name={newP.name||"?"} size={68} ovrVal={65} color="#4499dd" />
-                    <div style={{position:"absolute",bottom:0,right:0,background:"#1e6ba8",borderRadius:"50%",width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,border:"1px solid #2a8ad4",cursor:"pointer"}}>📷</div>
+                    <div style={{position:"absolute",bottom:0,right:0,background:"#1e6fbf",borderRadius:"50%",width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,border:"1px solid #3a8ae0",cursor:"pointer"}}>📷</div>
                   </div>
-                  <div style={{fontSize:11,color:"#4477aa"}}>클릭해서 사진 업로드<br/><span style={{fontSize:10,color:"#335577"}}>JPG / PNG</span></div>
+                  <div style={{fontSize:11,color:"#4f82c4"}}>클릭해서 사진 업로드<br/><span style={{fontSize:10,color:"#4a6ea0"}}>JPG / PNG</span></div>
                   <input ref={photoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>loadPhoto(e.target.files[0],"new")} />
                 </div>
                 <div className="add-player-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9,marginBottom:14}}>
                   {[{l:"이름",k:"name",t:"text"},{l:"등번호",k:"number",t:"number"},{l:"나이",k:"age",t:"number"},{l:"구단",k:"club",t:"text"},{l:"키(cm)",k:"heightCm",t:"number"},{l:"몸무게(kg)",k:"weightKg",t:"number"},{l:"사이즈",k:"size",t:"text"}].map(({l,k,t})=>(
                     <div key={k}>
-                      <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>{l}</div>
+                      <div style={{fontSize:10,color:"#4f82c4",marginBottom:3}}>{l}</div>
                       <input type={t} value={newP[k]} onChange={e=>setNewP(p=>({...p,[k]:e.target.value}))} style={INPUT} />
                     </div>
                   ))}
                   <div>
-                    <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>포지션</div>
+                    <div style={{fontSize:10,color:"#4f82c4",marginBottom:3}}>포지션</div>
                     <select value={newP.pos} onChange={e=>setNewP(p=>({...p,pos:e.target.value}))} style={INPUT}>
                       {POSITIONS.map(pos=><option key={pos}>{pos}</option>)}
                     </select>
                   </div>
                   <div>
-                    <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>팀</div>
+                    <div style={{fontSize:10,color:"#4f82c4",marginBottom:3}}>팀</div>
                     <select value={newP.tid} onChange={e=>setNewP(p=>({...p,tid:e.target.value}))} style={INPUT}>
                       <option value="">팀 없음</option>
                       {teams.map(t=><option key={t.id} value={t.id}>{t.badge} {t.name}</option>)}
                     </select>
                   </div>
                   <div>
-                    <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>성별</div>
+                    <div style={{fontSize:10,color:"#4f82c4",marginBottom:3}}>성별</div>
                     <select value={newP.gender||""} onChange={e=>setNewP(p=>({...p,gender:e.target.value}))} style={INPUT}>
                       {["","남","여"].map(o=><option key={o} value={o}>{o===""?"-":o}</option>)}
                     </select>
                   </div>
                   <div>
-                    <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>수준</div>
+                    <div style={{fontSize:10,color:"#4f82c4",marginBottom:3}}>수준</div>
                     <select value={newP.level||""} onChange={e=>setNewP(p=>({...p,level:e.target.value}))} style={INPUT}>
                       {["","취미","전문"].map(o=><option key={o} value={o}>{o===""?"-":o}</option>)}
                     </select>
@@ -1557,15 +1557,15 @@ export default function App(){
                 </div>
                 {groups.map(g=>(
                   <div key={g.id} style={{marginBottom:12}}>
-                    <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:5,borderBottom:"1px solid #0d2340",paddingBottom:3}}>{g.name}</div>
+                    <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:5,borderBottom:"1px solid #123258",paddingBottom:3}}>{g.name}</div>
                     {(abilitiesByGroup[g.id]||[]).map(ab=>(
                       <Bar key={ab.key} ab={ab} value={newP.attrs[ab.key]} editing={true} onChange={v=>setNewP(p=>({...p,attrs:{...p.attrs,[ab.key]:v}}))} />
                     ))}
                   </div>
                 ))}
                 <div style={{display:"flex",gap:8,marginTop:10}}>
-                  <button onClick={saveNew} style={{background:"#1e6ba8",border:"none",color:"#fff",borderRadius:5,padding:"8px 20px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>저장</button>
-                  <button onClick={()=>{setAdding(false);setNewP(null);}} style={{background:"#1a2a3a",border:"1px solid #1e3a5f",color:"#8899aa",borderRadius:5,padding:"8px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>취소</button>
+                  <button onClick={saveNew} style={{background:"#1e6fbf",border:"none",color:"#fff",borderRadius:5,padding:"8px 20px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>저장</button>
+                  <button onClick={()=>{setAdding(false);setNewP(null);}} style={{background:"#132a48",border:"1px solid #1d4a86",color:"#8899aa",borderRadius:5,padding:"8px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>취소</button>
                 </div>
               </div>
             )}
@@ -1574,17 +1574,17 @@ export default function App(){
             {!adding && display && (
               <div>
                 {/* header */}
-                <div className="player-header-card" style={{...cardStyle,border:`1px solid ${selTeam?.color||"#1e3a5f"}`,marginBottom:12,display:"flex",alignItems:"center",gap:14}}>
+                <div className="player-header-card" style={{...cardStyle,border:`1px solid ${selTeam?.color||"#1d4a86"}`,marginBottom:12,display:"flex",alignItems:"center",gap:14}}>
                   <div style={{position:"relative",flexShrink:0}}>
                     <Avatar photo={display.photo} name={display.name} size={62} ovrVal={ovrVal} color={getColor(ovrVal)} mode={cardMode} number={display.number} pos={display.pos} />
                     {editing && (
                       <>
-                        <div onClick={()=>editPhotoRef.current?.click()} style={{position:"absolute",bottom:0,right:0,background:"#1e6ba8",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,cursor:"pointer",border:"1px solid #2a8ad4"}}>📷</div>
+                        <div onClick={()=>editPhotoRef.current?.click()} style={{position:"absolute",bottom:0,right:0,background:"#1e6fbf",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,cursor:"pointer",border:"1px solid #3a8ae0"}}>📷</div>
                         <input ref={editPhotoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>loadPhoto(e.target.files[0],"edit")} />
                       </>
                     )}
                     {!editing && (
-                      <div style={{position:"absolute",bottom:-2,right:-2,background:"#0d2340",borderRadius:3,padding:"1px 5px",fontSize:10,fontWeight:900,color:getColor(ovrVal),fontFamily:"'Oswald',sans-serif",border:`1px solid ${getColor(ovrVal)}44`}}>{ovrVal}</div>
+                      <div style={{position:"absolute",bottom:-2,right:-2,background:"#123258",borderRadius:3,padding:"1px 5px",fontSize:10,fontWeight:900,color:getColor(ovrVal),fontFamily:"'Oswald',sans-serif",border:`1px solid ${getColor(ovrVal)}44`}}>{ovrVal}</div>
                     )}
                   </div>
                   <div style={{flex:1}}>
@@ -1593,8 +1593,8 @@ export default function App(){
                       : <div style={{fontFamily:"'Oswald',sans-serif",fontSize:20,fontWeight:700,letterSpacing:1,marginBottom:5}}>{display.name}</div>
                     }
                     <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                      <div style={{background:"#0d1b2a",borderRadius:4,padding:"3px 8px"}}>
-                        <span style={{fontSize:9,color:"#335577"}}>포지션 </span>
+                      <div style={{background:"#0c1f38",borderRadius:4,padding:"3px 8px"}}>
+                        <span style={{fontSize:9,color:"#4a6ea0"}}>포지션 </span>
                         {editing
                           ? <select value={editD.pos} onChange={e=>setEditD(d=>({...d,pos:e.target.value}))} style={{background:"transparent",border:"none",color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700}}>
                               {POSITIONS.map(o=><option key={o}>{o}</option>)}
@@ -1603,8 +1603,8 @@ export default function App(){
                         }
                       </div>
                       {[{k:"number",l:"등번호",unit:""},{k:"age",l:"나이",unit:""},{k:"club",l:"구단",unit:""},{k:"heightCm",l:"키",unit:"cm"},{k:"weightKg",l:"몸무게",unit:"kg"},{k:"size",l:"사이즈",unit:""}].map(({k,l,unit})=>(
-                        <div key={k} style={{background:"#0d1b2a",borderRadius:4,padding:"3px 8px"}}>
-                          <span style={{fontSize:9,color:"#335577"}}>{l} </span>
+                        <div key={k} style={{background:"#0c1f38",borderRadius:4,padding:"3px 8px"}}>
+                          <span style={{fontSize:9,color:"#4a6ea0"}}>{l} </span>
                           {editing
                             ? <input type={k==="club"||k==="size"?"text":"number"} value={editD[k]} onChange={e=>setEditD(d=>({...d,[k]:e.target.value}))} style={{background:"transparent",border:"none",color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,width:70,outline:"none"}} />
                             : <span style={{fontSize:12,fontWeight:700,color:"#4499dd"}}>{display[k]}{display[k]!==""&&display[k]!=null?unit:""}</span>
@@ -1613,8 +1613,8 @@ export default function App(){
                       ))}
                       {/* 성별 / 수준(취미·전문) — 비교 기준 */}
                       {[{k:"gender",l:"성별",opts:["","남","여"]},{k:"level",l:"수준",opts:["","취미","전문"]}].map(({k,l,opts})=>(
-                        <div key={k} style={{background:"#0d1b2a",borderRadius:4,padding:"3px 8px"}}>
-                          <span style={{fontSize:9,color:"#335577"}}>{l} </span>
+                        <div key={k} style={{background:"#0c1f38",borderRadius:4,padding:"3px 8px"}}>
+                          <span style={{fontSize:9,color:"#4a6ea0"}}>{l} </span>
                           {editing
                             ? <select value={editD[k]||""} onChange={e=>setEditD(d=>({...d,[k]:e.target.value}))} style={{background:"transparent",border:"none",color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,outline:"none"}}>
                                 {opts.map(o=><option key={o} value={o}>{o===""?"-":o}</option>)}
@@ -1629,13 +1629,13 @@ export default function App(){
                   <div style={{display:"flex",gap:5,flexShrink:0,flexDirection:"column"}}>
                     {editing ? (
                       <>
-                        <button onClick={saveEdit} style={{background:"#1e6ba8",border:"none",color:"#fff",borderRadius:5,padding:"7px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>저장</button>
-                        <button onClick={cancelEdit} style={{background:"#1a2a3a",border:"1px solid #1e3a5f",color:"#8899aa",borderRadius:5,padding:"7px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>취소</button>
+                        <button onClick={saveEdit} style={{background:"#1e6fbf",border:"none",color:"#fff",borderRadius:5,padding:"7px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>저장</button>
+                        <button onClick={cancelEdit} style={{background:"#132a48",border:"1px solid #1d4a86",color:"#8899aa",borderRadius:5,padding:"7px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>취소</button>
                       </>
                     ) : (
                       <>
-                        <button onClick={startEdit} style={{background:"#1e3a5f",border:"1px solid #2a5580",color:"#88bbdd",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>✏ 편집</button>
-                        <button onClick={handlePrintPlayer} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#88bbdd",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>🖨 프린트</button>
+                        <button onClick={startEdit} style={{background:"#1d4a86",border:"1px solid #2a63a8",color:"#8fbaf0",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>✏ 편집</button>
+                        <button onClick={handlePrintPlayer} style={{background:"transparent",border:"1px solid #1d4a86",color:"#8fbaf0",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>🖨 프린트</button>
                         <button onClick={delPlayer} style={{background:"#2a1010",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"7px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>삭제</button>
                       </>
                     )}
@@ -1645,7 +1645,7 @@ export default function App(){
                 {/* tabs */}
                 <div style={{display:"flex",gap:3,marginBottom:12}}>
                   {DTABS.map(t=>(
-                    <button key={t} onClick={()=>setDtab(t)} style={{background:dtab===t?"#1e6ba8":"#071525",border:dtab===t?"1px solid #2a8ad4":"1px solid #0d2340",color:dtab===t?"#fff":"#5577aa",borderRadius:5,padding:"5px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>{t}</button>
+                    <button key={t} onClick={()=>setDtab(t)} style={{background:dtab===t?"#1e6fbf":"#0a1c34",border:dtab===t?"1px solid #3a8ae0":"1px solid #123258",color:dtab===t?"#fff":"#6f97c4",borderRadius:5,padding:"5px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>{t}</button>
                   ))}
                 </div>
 
@@ -1653,11 +1653,11 @@ export default function App(){
                   <div style={{display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-start"}}>
                     {/* 좌: 프로필 사진 + 레이더 + OVR (FM식 프로필) */}
                     <div style={{...cardStyle,display:"flex",flexDirection:"column",alignItems:"center",flex:"0 0 240px"}}>
-                      <div onClick={()=>profilePhotoRef.current?.click()} title="클릭해서 사진 추가/교체" style={{width:150,height:180,borderRadius:10,overflow:"hidden",border:`2px solid ${selTeam?.color||"#1e3a5f"}`,background:"linear-gradient(160deg,#0d1b2a,#071525)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",position:"relative",marginBottom:12}}>
+                      <div onClick={()=>profilePhotoRef.current?.click()} title="클릭해서 사진 추가/교체" style={{width:150,height:180,borderRadius:10,overflow:"hidden",border:`2px solid ${selTeam?.color||"#1d4a86"}`,background:"linear-gradient(160deg,#0c1f38,#0a1c34)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",position:"relative",marginBottom:12}}>
                         {display.photo
                           ? <img src={display.photo} alt={display.name} style={{width:"100%",height:"100%",objectFit:"cover"}} />
-                          : <div style={{textAlign:"center",color:"#33507a"}}><div style={{fontSize:44,lineHeight:1}}>👤</div><div style={{fontSize:11,fontWeight:700,marginTop:6}}>사진 추가</div></div>}
-                        <div style={{position:"absolute",bottom:7,right:7,background:"rgba(30,107,168,0.92)",borderRadius:"50%",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,border:"1px solid #2a8ad4"}}>📷</div>
+                          : <div style={{textAlign:"center",color:"#2f5c99"}}><div style={{fontSize:44,lineHeight:1}}>👤</div><div style={{fontSize:11,fontWeight:700,marginTop:6}}>사진 추가</div></div>}
+                        <div style={{position:"absolute",bottom:7,right:7,background:"rgba(30,107,168,0.92)",borderRadius:"50%",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,border:"1px solid #3a8ae0"}}>📷</div>
                       </div>
                       {display.photo && <button onClick={removeProfilePhoto} style={{background:"transparent",border:"1px solid #3a1a1a",color:"#cc6666",borderRadius:5,padding:"3px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer",marginBottom:10}}>사진 삭제</button>}
                       <input ref={profilePhotoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{setProfilePhoto(e.target.files[0]); e.target.value="";}} />
@@ -1666,7 +1666,7 @@ export default function App(){
                       </div>
                       <GroupRadar attrs={display.attrs} groups={groups} abilities={abilities} drillGroup={radarGroup} onDrill={setRadarGroup} />
                       {radarGroup
-                        ? <button onClick={()=>setRadarGroup(null)} style={{marginTop:8,background:"transparent",border:"1px solid #1e3a5f",color:"#88bbdd",borderRadius:5,padding:"5px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>← 전체 보기</button>
+                        ? <button onClick={()=>setRadarGroup(null)} style={{marginTop:8,background:"transparent",border:"1px solid #1d4a86",color:"#8fbaf0",borderRadius:5,padding:"5px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>← 전체 보기</button>
                         : (
                           <div style={{marginTop:8,display:"flex",gap:5,flexWrap:"wrap",justifyContent:"center"}}>
                             {groups.map((g,gi)=>(
@@ -1675,9 +1675,9 @@ export default function App(){
                           </div>
                         )
                       }
-                      <div style={{fontSize:9,color:"#33507a",marginTop:5}}>{radarGroup?"위 항목이 이 분류의 세부 축입니다":"그룹(색)을 누르면 세부 축이 보입니다"}</div>
+                      <div style={{fontSize:9,color:"#2f5c99",marginTop:5}}>{radarGroup?"위 항목이 이 분류의 세부 축입니다":"그룹(색)을 누르면 세부 축이 보입니다"}</div>
                       <div style={{marginTop:10,display:"flex",alignItems:"baseline",gap:6}}>
-                        <span style={{fontSize:11,color:"#5577aa",fontWeight:700}}>OVR</span>
+                        <span style={{fontSize:11,color:"#6f97c4",fontWeight:700}}>OVR</span>
                         <span style={{fontSize:26,fontWeight:900,color:getColor(ovrVal),fontFamily:"'Oswald',sans-serif"}}>{ovrVal}</span>
                         {(()=>{const m=cmpMark(ovrVal,cmpAvg.avgOvr);const d=ovrVal-cmpAvg.avgOvr;return <span style={{fontSize:11,fontWeight:700,color:m.col}}>{m.arrow} 평균 {cmpAvg.avgOvr} ({d>0?"+":""}{d})</span>;})()}
                       </div>
@@ -1685,11 +1685,11 @@ export default function App(){
                       <div style={{marginTop:8,display:"flex",alignItems:"center",gap:4,flexWrap:"wrap",justifyContent:"center"}}>
                         <span style={{fontSize:9,color:"#4a6a8a"}}>비교</span>
                         {[["all","전체"],["pos","포지션"],["team","팀"],["age","나이"],["gender","성별"],["level","수준"]].map(([v,l])=>(
-                          <button key={v} onClick={()=>setCmpScope(v)} style={{background:cmpScope===v?"#1e3a5f":"transparent",border:cmpScope===v?"1px solid #2a5580":"1px solid #0d2340",color:cmpScope===v?"#88bbdd":"#4477aa",borderRadius:5,padding:"2px 8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,cursor:"pointer"}}>{l}</button>
+                          <button key={v} onClick={()=>setCmpScope(v)} style={{background:cmpScope===v?"#1d4a86":"transparent",border:cmpScope===v?"1px solid #2a63a8":"1px solid #123258",color:cmpScope===v?"#8fbaf0":"#4f82c4",borderRadius:5,padding:"2px 8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,cursor:"pointer"}}>{l}</button>
                         ))}
                       </div>
-                      <div style={{fontSize:9,color:"#33507a",marginTop:3}}>비교 대상 {cmpAvg.count}명</div>
-                      <button onClick={()=>setAttrMgrOpen(true)} style={{marginTop:8,background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>⚙ 레이더 · 능력치 설정</button>
+                      <div style={{fontSize:9,color:"#2f5c99",marginTop:3}}>비교 대상 {cmpAvg.count}명</div>
+                      <button onClick={()=>setAttrMgrOpen(true)} style={{marginTop:8,background:"transparent",border:"1px solid #1d4a86",color:"#6f97c4",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>⚙ 레이더 · 능력치 설정</button>
                     </div>
                     {/* 우: FM식 능력치 그리드 (그룹별 열, 항목마다 숫자값) */}
                     <div style={{flex:1,minWidth:240,display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-start"}}>
@@ -1700,8 +1700,8 @@ export default function App(){
                         const gAvg=cmpAvg.avgGroup[g.id]; const gm=cmpMark(avg,gAvg);
                         return (
                           <div key={g.id} style={{...cardStyle,flex:"1 1 220px",minWidth:200}}>
-                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:7,paddingBottom:5,borderBottom:"1px solid #1e3a5f"}}>
-                              <span style={{fontSize:12,fontWeight:700,color:"#88bbdd",letterSpacing:1}}>{g.name}</span>
+                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:7,paddingBottom:5,borderBottom:"1px solid #1d4a86"}}>
+                              <span style={{fontSize:12,fontWeight:700,color:"#8fbaf0",letterSpacing:1}}>{g.name}</span>
                               <span style={{display:"flex",alignItems:"baseline",gap:5}}>
                                 <span style={{fontSize:9,color:"#4a6a8a"}}>Ø{gAvg}</span>
                                 <span style={{fontSize:15,fontWeight:900,color:getColor(avg),fontFamily:"'Oswald',sans-serif"}}>{avg}</span>
@@ -1709,7 +1709,7 @@ export default function App(){
                               </span>
                             </div>
                             {atrs.map(ab=>{
-                              const raw=display.attrs[ab.key]; const sc=abScore(ab,raw); const col=sc!=null?getColor(sc):"#33507a";
+                              const raw=display.attrs[ab.key]; const sc=abScore(ab,raw); const col=sc!=null?getColor(sc):"#2f5c99";
                               const aRaw=cmpAvg.avgRaw[ab.key]; const aSc=cmpAvg.avgScore[ab.key]; const m=cmpMark(sc,aSc);
                               return (
                                 <div key={ab.key} style={{display:"flex",alignItems:"center",gap:6,padding:"3px 0"}}>
@@ -1736,13 +1736,13 @@ export default function App(){
                   <div>
                     <div style={{display:"flex",gap:3,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
                       {groups.map(g=>(
-                        <button key={g.id} onClick={()=>setACat(g.id)} style={{background:curGroup?.id===g.id?"#1e3a5f":"transparent",border:curGroup?.id===g.id?"1px solid #2a5580":"1px solid #0d2340",color:curGroup?.id===g.id?"#88bbdd":"#4477aa",borderRadius:5,padding:"4px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>{g.name}</button>
+                        <button key={g.id} onClick={()=>setACat(g.id)} style={{background:curGroup?.id===g.id?"#1d4a86":"transparent",border:curGroup?.id===g.id?"1px solid #2a63a8":"1px solid #123258",color:curGroup?.id===g.id?"#8fbaf0":"#4f82c4",borderRadius:5,padding:"4px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>{g.name}</button>
                       ))}
-                      <button onClick={()=>setAttrMgrOpen(true)} title="능력치 항목 관리" style={{marginLeft:"auto",background:"transparent",border:"1px solid #0d2340",color:"#5577aa",borderRadius:5,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>⚙ 능력치 관리</button>
+                      <button onClick={()=>setAttrMgrOpen(true)} title="능력치 항목 관리" style={{marginLeft:"auto",background:"transparent",border:"1px solid #123258",color:"#6f97c4",borderRadius:5,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>⚙ 능력치 관리</button>
                     </div>
                     <div style={cardStyle}>
                       <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:9}}>{curGroup?.name||""}</div>
-                      {curAbs.length===0 && <div style={{fontSize:12,color:"#335577"}}>이 그룹에 능력치가 없습니다. ⚙ 능력치 관리에서 추가하세요.</div>}
+                      {curAbs.length===0 && <div style={{fontSize:12,color:"#4a6ea0"}}>이 그룹에 능력치가 없습니다. ⚙ 능력치 관리에서 추가하세요.</div>}
                       {curAbs.map(ab=>(
                         <Bar key={ab.key} ab={ab} value={editing?editD.attrs[ab.key]:display.attrs[ab.key]} editing={editing} onChange={v=>setEditD(d=>({...d,attrs:{...d.attrs,[ab.key]:v}}))} />
                       ))}
@@ -1754,31 +1754,31 @@ export default function App(){
                 {dtab==="성장 추적" && (
                   <div>
                     <div style={{display:"flex",alignItems:"center",marginBottom:11}}>
-                      <span style={{fontSize:11,color:"#4477aa",fontWeight:700,letterSpacing:1}}>OVR 성장 추이</span>
-                      <button onClick={()=>setSnapModal(true)} style={{marginLeft:"auto",background:"#1e3a5f",border:"1px solid #2a5580",color:"#88bbdd",borderRadius:5,padding:"5px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>📸 스냅샷 기록</button>
+                      <span style={{fontSize:11,color:"#4f82c4",fontWeight:700,letterSpacing:1}}>OVR 성장 추이</span>
+                      <button onClick={()=>setSnapModal(true)} style={{marginLeft:"auto",background:"#1d4a86",border:"1px solid #2a63a8",color:"#8fbaf0",borderRadius:5,padding:"5px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>📸 스냅샷 기록</button>
                     </div>
                     <div style={{...cardStyle,marginBottom:12}}>
                       <GrowthLine history={sel?.history||[]} abilities={abilities} />
                     </div>
                     <div style={{...cardStyle,marginBottom:12}}>
                       <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:9}}>능력치별 변화 (단위 기준)</div>
-                      {(sel?.history||[]).length<2 && <p style={{color:"#335577",fontSize:12}}>스냅샷 2개 이상이면 능력치별 추이가 표시됩니다</p>}
+                      {(sel?.history||[]).length<2 && <p style={{color:"#4a6ea0",fontSize:12}}>스냅샷 2개 이상이면 능력치별 추이가 표시됩니다</p>}
                       {(sel?.history||[]).length>=2 && (() => {
                         const rows = abilities.map(ab => <AbilityGrowthLine key={ab.key} ab={ab} history={sel.history} />).filter(Boolean);
-                        return rows.length ? rows : <p style={{color:"#335577",fontSize:12}}>변화를 표시할 데이터가 없습니다</p>;
+                        return rows.length ? rows : <p style={{color:"#4a6ea0",fontSize:12}}>변화를 표시할 데이터가 없습니다</p>;
                       })()}
                     </div>
                     <div style={cardStyle}>
                       <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:9}}>스냅샷 이력 (OVR)</div>
-                      {(sel?.history||[]).length===0 && <p style={{color:"#335577",fontSize:12}}>스냅샷이 없습니다</p>}
+                      {(sel?.history||[]).length===0 && <p style={{color:"#4a6ea0",fontSize:12}}>스냅샷이 없습니다</p>}
                       {[...(sel?.history||[])].reverse().map((h,i,arr)=>{
                         const v2=ovr(h.attrs), p2=arr[i+1], diff=p2?v2-ovr(p2.attrs):0;
                         return (
-                          <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:"1px solid #0d2340"}}>
+                          <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:"1px solid #123258"}}>
                             <span style={{fontSize:17,fontWeight:900,color:getColor(v2),fontFamily:"'Oswald',sans-serif",width:32}}>{v2}</span>
                             <div style={{flex:1}}>
-                              <div style={{fontSize:12,fontWeight:700,color:"#e0f0ff"}}>{h.label}</div>
-                              <div style={{fontSize:10,color:"#335577"}}>{h.date}</div>
+                              <div style={{fontSize:12,fontWeight:700,color:"#e6f1ff"}}>{h.label}</div>
+                              <div style={{fontSize:10,color:"#4a6ea0"}}>{h.date}</div>
                             </div>
                             {diff!==0 && <span style={{fontSize:12,fontWeight:700,color:diff>0?"#00e676":"#ef5350"}}>{diff>0?"+":""}{diff}</span>}
                           </div>
@@ -1790,7 +1790,7 @@ export default function App(){
               </div>
             )}
 
-            {!adding && !display && <p style={{color:"#335577",textAlign:"center",marginTop:80,fontSize:15}}>선수를 선택하세요</p>}
+            {!adding && !display && <p style={{color:"#4a6ea0",textAlign:"center",marginTop:80,fontSize:15}}>선수를 선택하세요</p>}
           </div>
         </div>
       )}
@@ -1800,17 +1800,17 @@ export default function App(){
         <div className="team-view" style={{flex:1,overflowY:"auto",padding:"16px 24px"}}>
           <div style={{display:"flex",alignItems:"center",marginBottom:16}}>
             <span style={{fontFamily:"'Oswald',sans-serif",fontSize:19,fontWeight:700,letterSpacing:2}}>팀 관리</span>
-            <button onClick={()=>setAddTeam(true)} style={{marginLeft:"auto",background:"linear-gradient(135deg,#1e6ba8,#0d4a7a)",border:"none",color:"#fff",borderRadius:5,padding:"7px 16px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>+ 팀 추가</button>
+            <button onClick={()=>setAddTeam(true)} style={{marginLeft:"auto",background:"linear-gradient(135deg,#1e6fbf,#0d4a7a)",border:"none",color:"#fff",borderRadius:5,padding:"7px 16px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>+ 팀 추가</button>
           </div>
           {addTeam && (
-            <div style={{...cardStyle,border:"1px solid #1e3a5f",marginBottom:16}}>
+            <div style={{...cardStyle,border:"1px solid #1d4a86",marginBottom:16}}>
               <div style={{fontSize:11,color:"#4499dd",fontWeight:700,letterSpacing:1,marginBottom:9}}>새 팀 만들기</div>
               <div style={{display:"flex",gap:9,alignItems:"flex-end",flexWrap:"wrap"}}>
-                <div style={{flex:2,minWidth:110}}><div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>팀 이름</div><input value={newTeam.name} onChange={e=>setNewTeam(t=>({...t,name:e.target.value}))} style={INPUT} /></div>
-                <div style={{flex:1,minWidth:70}}><div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>배지</div><input value={newTeam.badge} onChange={e=>setNewTeam(t=>({...t,badge:e.target.value}))} style={INPUT} /></div>
-                <div style={{flex:1,minWidth:70}}><div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>컬러</div><input type="color" value={newTeam.color} onChange={e=>setNewTeam(t=>({...t,color:e.target.value}))} style={{...INPUT,padding:2,height:33}} /></div>
-                <button onClick={saveTeamFn} style={{background:"#1e6ba8",border:"none",color:"#fff",borderRadius:5,padding:"8px 16px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>저장</button>
-                <button onClick={()=>setAddTeam(false)} style={{background:"#1a2a3a",border:"1px solid #1e3a5f",color:"#8899aa",borderRadius:5,padding:"8px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>취소</button>
+                <div style={{flex:2,minWidth:110}}><div style={{fontSize:10,color:"#4f82c4",marginBottom:3}}>팀 이름</div><input value={newTeam.name} onChange={e=>setNewTeam(t=>({...t,name:e.target.value}))} style={INPUT} /></div>
+                <div style={{flex:1,minWidth:70}}><div style={{fontSize:10,color:"#4f82c4",marginBottom:3}}>배지</div><input value={newTeam.badge} onChange={e=>setNewTeam(t=>({...t,badge:e.target.value}))} style={INPUT} /></div>
+                <div style={{flex:1,minWidth:70}}><div style={{fontSize:10,color:"#4f82c4",marginBottom:3}}>컬러</div><input type="color" value={newTeam.color} onChange={e=>setNewTeam(t=>({...t,color:e.target.value}))} style={{...INPUT,padding:2,height:33}} /></div>
+                <button onClick={saveTeamFn} style={{background:"#1e6fbf",border:"none",color:"#fff",borderRadius:5,padding:"8px 16px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>저장</button>
+                <button onClick={()=>setAddTeam(false)} style={{background:"#132a48",border:"1px solid #1d4a86",color:"#8899aa",borderRadius:5,padding:"8px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>취소</button>
               </div>
             </div>
           )}
@@ -1819,16 +1819,16 @@ export default function App(){
               const roster=players.filter(p=>p.tid===team.id);
               const avgO=roster.length?Math.round(roster.reduce((s,p)=>s+ovr(p.attrs),0)/roster.length):0;
               return (
-                <div key={team.id} style={{background:"#071525",border:`1px solid ${team.color}44`,borderLeft:`4px solid ${team.color}`,borderRadius:8,padding:"14px 18px"}}>
+                <div key={team.id} style={{background:"#0a1c34",border:`1px solid ${team.color}44`,borderLeft:`4px solid ${team.color}`,borderRadius:8,padding:"14px 18px"}}>
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
                     <span style={{fontSize:26}}>{team.badge}</span>
                     <div>
                       <div style={{fontFamily:"'Oswald',sans-serif",fontSize:17,fontWeight:700}}>{team.name}</div>
-                      <div style={{fontSize:11,color:"#335577"}}>선수 {roster.length}명{roster.length>0?` · 평균 OVR `:""}{roster.length>0&&<span style={{color:getColor(avgO),fontWeight:700}}>{avgO}</span>}</div>
+                      <div style={{fontSize:11,color:"#4a6ea0"}}>선수 {roster.length}명{roster.length>0?` · 평균 OVR `:""}{roster.length>0&&<span style={{color:getColor(avgO),fontWeight:700}}>{avgO}</span>}</div>
                     </div>
                     <button onClick={()=>delTeam(team.id)} style={{marginLeft:"auto",background:"#2a1010",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"5px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>팀 삭제</button>
                   </div>
-                  {roster.length===0 && <p style={{color:"#335577",fontSize:12,marginBottom:10}}>소속 선수 없음</p>}
+                  {roster.length===0 && <p style={{color:"#4a6ea0",fontSize:12,marginBottom:10}}>소속 선수 없음</p>}
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:7}}>
                     {roster.map(p=>{
                       const v=ovr(p.attrs);
@@ -1836,16 +1836,16 @@ export default function App(){
                         <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,background:"#0a1a2e",borderRadius:5,padding:"7px 10px"}}>
                           <Avatar photo={p.photo} name={p.name} size={30} ovrVal={v} color={getColor(v)} mode={cardMode} number={p.number} pos={p.pos} />
                           <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontSize:12,fontWeight:700,color:"#e0f0ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
-                            <div style={{fontSize:10,color:"#4477aa"}}>{p.pos} · {p.club}</div>
+                            <div style={{fontSize:12,fontWeight:700,color:"#e6f1ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
+                            <div style={{fontSize:10,color:"#4f82c4"}}>{p.pos} · {p.club}</div>
                           </div>
-                          <button onClick={()=>assignTeam(p.id,"")} style={{background:"transparent",border:"none",color:"#335577",cursor:"pointer",fontSize:11}}>✕</button>
+                          <button onClick={()=>assignTeam(p.id,"")} style={{background:"transparent",border:"none",color:"#4a6ea0",cursor:"pointer",fontSize:11}}>✕</button>
                         </div>
                       );
                     })}
                   </div>
                   <div style={{marginTop:10}}>
-                    <select onChange={e=>{if(e.target.value){assignTeam(parseInt(e.target.value),team.id);e.target.value="";}}} style={{...INPUT,maxWidth:210,fontSize:11,color:"#4477aa"}}>
+                    <select onChange={e=>{if(e.target.value){assignTeam(parseInt(e.target.value),team.id);e.target.value="";}}} style={{...INPUT,maxWidth:210,fontSize:11,color:"#4f82c4"}}>
                       <option value="">+ 선수 영입하기</option>
                       {players.filter(p=>p.tid!==team.id).map(p=><option key={p.id} value={p.id}>{p.name} ({p.pos}) OVR {ovr(p.attrs)}</option>)}
                     </select>
@@ -1866,10 +1866,10 @@ export default function App(){
               <div style={{background:"#0d2a1a",border:"1px solid #1e5a30",borderRadius:8,padding:"9px 13px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                 <div style={{flex:1,minWidth:120}}>
                   <div style={{fontSize:9,color:"#69f0ae",fontWeight:700,letterSpacing:1}}>📌 경기 라인업 편집 중</div>
-                  <div style={{fontSize:12,fontWeight:700,color:"#e0f0ff"}}>{activeMatch.date} · vs {activeMatch.opponent} ({activeMatch.homeAway==="home"?"홈":"원정"})</div>
+                  <div style={{fontSize:12,fontWeight:700,color:"#e6f1ff"}}>{activeMatch.date} · vs {activeMatch.opponent} ({activeMatch.homeAway==="home"?"홈":"원정"})</div>
                 </div>
-                <button onClick={saveMatchLineup} style={{background:"#1e6ba8",border:"none",color:"#fff",borderRadius:5,padding:"6px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>💾 라인업 저장</button>
-                <button onClick={exitMatchEdit} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"6px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>닫기</button>
+                <button onClick={saveMatchLineup} style={{background:"#1e6fbf",border:"none",color:"#fff",borderRadius:5,padding:"6px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>💾 라인업 저장</button>
+                <button onClick={exitMatchEdit} style={{background:"transparent",border:"1px solid #1d4a86",color:"#6f97c4",borderRadius:5,padding:"6px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>닫기</button>
               </div>
             )}
             <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
@@ -1877,27 +1877,27 @@ export default function App(){
               <select value={formation} onChange={e=>{const f=e.target.value;setFormation(f);setLineup(Array(FORMATIONS[f].length).fill(null));setSelSlot(null);setSlotPositions({});setSlotPosOverrides({});}} style={{...INPUT,width:"auto",fontSize:12,padding:"5px 10px",flex:1,minWidth:90}}>
                 {Object.keys(FORMATIONS).map(f=><option key={f}>{f}</option>)}
               </select>
-              <button onClick={clearLineup} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>초기화</button>
+              <button onClick={clearLineup} style={{background:"transparent",border:"1px solid #1d4a86",color:"#6f97c4",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>초기화</button>
             </div>
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-              <button onClick={()=>setShowBench(v=>!v)} style={{background:showBench?"#1e6ba8":"transparent",border:showBench?"1px solid #2a8ad4":"1px solid #1e3a5f",color:showBench?"#fff":"#5577aa",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>🪑 벤치 {showBench?"끄기":"켜기"}</button>
-              <button onClick={()=>setShowZones(v=>!v)} style={{background:showZones?"#1e6ba8":"transparent",border:showZones?"1px solid #2a8ad4":"1px solid #1e3a5f",color:showZones?"#fff":"#5577aa",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>🔢 18존 {showZones?"끄기":"켜기"}</button>
-              <button onClick={()=>setShowChannels(v=>!v)} style={{background:showChannels?"#1e6ba8":"transparent",border:showChannels?"1px solid #2a8ad4":"1px solid #1e3a5f",color:showChannels?"#fff":"#5577aa",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>📐 5채널 {showChannels?"끄기":"켜기"}</button>
-              <button onClick={handlePrintLineup} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#88bbdd",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>🖨 프린트</button>
-              <button onClick={handleShareLineup} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#88bbdd",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>📤 공유</button>
+              <button onClick={()=>setShowBench(v=>!v)} style={{background:showBench?"#1e6fbf":"transparent",border:showBench?"1px solid #3a8ae0":"1px solid #1d4a86",color:showBench?"#fff":"#6f97c4",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>🪑 벤치 {showBench?"끄기":"켜기"}</button>
+              <button onClick={()=>setShowZones(v=>!v)} style={{background:showZones?"#1e6fbf":"transparent",border:showZones?"1px solid #3a8ae0":"1px solid #1d4a86",color:showZones?"#fff":"#6f97c4",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>🔢 18존 {showZones?"끄기":"켜기"}</button>
+              <button onClick={()=>setShowChannels(v=>!v)} style={{background:showChannels?"#1e6fbf":"transparent",border:showChannels?"1px solid #3a8ae0":"1px solid #1d4a86",color:showChannels?"#fff":"#6f97c4",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>📐 5채널 {showChannels?"끄기":"켜기"}</button>
+              <button onClick={handlePrintLineup} style={{background:"transparent",border:"1px solid #1d4a86",color:"#8fbaf0",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>🖨 프린트</button>
+              <button onClick={handleShareLineup} style={{background:"transparent",border:"1px solid #1d4a86",color:"#8fbaf0",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>📤 공유</button>
             </div>
             {/* Formation notes */}
             {FORMATION_NOTES[formation] && (
-              <div style={{background:"#071525",border:"1px solid #0d2340",borderRadius:8,padding:"10px 13px"}}>
+              <div style={{background:"#0a1c34",border:"1px solid #123258",borderRadius:8,padding:"10px 13px"}}>
                 <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:7}}>📋 포메이션 메모</div>
                 <div style={{display:"flex",flexDirection:"column",gap:4}}>
                   <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
                     <span style={{fontSize:10,fontWeight:700,color:"#69f0ae",width:32,flexShrink:0}}>강점</span>
-                    <span style={{fontSize:11,color:"#e0f0ff",flex:1}}>{FORMATION_NOTES[formation].강점}</span>
+                    <span style={{fontSize:11,color:"#e6f1ff",flex:1}}>{FORMATION_NOTES[formation].강점}</span>
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
                     <span style={{fontSize:10,fontWeight:700,color:"#ef5350",width:32,flexShrink:0}}>약점</span>
-                    <span style={{fontSize:11,color:"#e0f0ff",flex:1}}>{FORMATION_NOTES[formation].약점}</span>
+                    <span style={{fontSize:11,color:"#e6f1ff",flex:1}}>{FORMATION_NOTES[formation].약점}</span>
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
                     <span style={{fontSize:10,fontWeight:700,color:"#ffb84d",width:32,flexShrink:0}}>추천</span>
@@ -1919,22 +1919,22 @@ export default function App(){
                 const pid=lineup[i], p=players.find(x=>x.id===pid)||null, v=p?ovr(p.attrs):null;
                 const curPos = slotPosOverrides[i] || slot.p;
                 return (
-                  <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #0d2340"}}>
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #123258"}}>
                     {/* Position input */}
                     <input value={curPos}
                       onChange={e=>setSlotPosOverrides(prev=>({...prev,[i]:e.target.value.toUpperCase().slice(0,4)}))}
-                      style={{background:"#0d2340",border:"1px solid #1e3a5f",color:"#4499dd",
+                      style={{background:"#123258",border:"1px solid #1d4a86",color:"#4499dd",
                         borderRadius:4,padding:"2px 4px",fontFamily:"'Barlow Condensed',sans-serif",
                         fontSize:11,fontWeight:700,width:48,flexShrink:0,textAlign:"center",outline:"none"}}/>
                     {p ? (
                       <>
                         <Avatar photo={p.photo} name={p.name} size={22} ovrVal={v} color={getColor(v)} mode={cardMode} number={p.number} pos={p.pos} />
-                        <span style={{flex:1,fontSize:12,fontWeight:700,color:"#e0f0ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</span>
+                        <span style={{flex:1,fontSize:12,fontWeight:700,color:"#e6f1ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</span>
                         <span style={{fontSize:11,fontWeight:700,color:getColor(v),flexShrink:0}}>{v}</span>
-                        <button onClick={()=>{const nl=[...lineup];nl[i]=null;setLineup(nl);}} style={{background:"transparent",border:"none",color:"#335577",cursor:"pointer",fontSize:10,flexShrink:0}}>✕</button>
+                        <button onClick={()=>{const nl=[...lineup];nl[i]=null;setLineup(nl);}} style={{background:"transparent",border:"none",color:"#4a6ea0",cursor:"pointer",fontSize:10,flexShrink:0}}>✕</button>
                       </>
                     ) : (
-                      <span style={{flex:1,fontSize:11,color:"#335577"}}>미배치</span>
+                      <span style={{flex:1,fontSize:11,color:"#4a6ea0"}}>미배치</span>
                     )}
                   </div>
                 );
@@ -1949,18 +1949,18 @@ export default function App(){
             {showBench && (
               <div style={{...cardStyle}}>
                 <div style={{fontSize:10,color:"#ffb84d",fontWeight:700,letterSpacing:2,marginBottom:8}}>🪑 벤치 ({bench.length}명)</div>
-                {bench.length===0 && <p style={{color:"#335577",fontSize:12}}>오른쪽 선수 목록에서 "벤치+" 버튼으로 후보를 추가하세요</p>}
+                {bench.length===0 && <p style={{color:"#4a6ea0",fontSize:12}}>오른쪽 선수 목록에서 "벤치+" 버튼으로 후보를 추가하세요</p>}
                 {bench.map(pid=>{
                   const p=players.find(x=>x.id===pid);
                   if(!p) return null;
                   const v=ovr(p.attrs);
                   return (
-                    <div key={pid} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #0d2340"}}>
+                    <div key={pid} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #123258"}}>
                       <Avatar photo={p.photo} name={p.name} size={22} ovrVal={v} color={getColor(v)} mode={cardMode} number={p.number} pos={p.pos} />
-                      <span style={{flex:1,fontSize:12,fontWeight:700,color:"#e0f0ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</span>
-                      <span style={{background:"#0d2340",borderRadius:3,padding:"1px 6px",fontSize:10,fontWeight:700,color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif"}}>{p.pos}</span>
+                      <span style={{flex:1,fontSize:12,fontWeight:700,color:"#e6f1ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</span>
+                      <span style={{background:"#123258",borderRadius:3,padding:"1px 6px",fontSize:10,fontWeight:700,color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif"}}>{p.pos}</span>
                       <span style={{fontSize:11,fontWeight:700,color:getColor(v),flexShrink:0}}>{v}</span>
-                      <button onClick={()=>toggleBench(pid)} style={{background:"transparent",border:"none",color:"#335577",cursor:"pointer",fontSize:10,flexShrink:0}}>✕</button>
+                      <button onClick={()=>toggleBench(pid)} style={{background:"transparent",border:"none",color:"#4a6ea0",cursor:"pointer",fontSize:10,flexShrink:0}}>✕</button>
                     </div>
                   );
                 })}
@@ -1969,8 +1969,8 @@ export default function App(){
           </div>
 
           {/* picker */}
-          <div className="best11-picker-col" style={{flex:1,background:"#050f1a",borderLeft:"1px solid #0d2340",display:"flex",flexDirection:"column",overflow:"hidden"}}>
-            <div style={{padding:"10px 12px",borderBottom:"1px solid #0d2340",flexShrink:0}}>
+          <div className="best11-picker-col" style={{flex:1,background:"#050f1a",borderLeft:"1px solid #123258",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+            <div style={{padding:"10px 12px",borderBottom:"1px solid #123258",flexShrink:0}}>
               <div style={{fontSize:11,color:"#4499dd",fontWeight:700,letterSpacing:1,marginBottom:7}}>선수 선택 {selSlot!==null?`— ${slots[selSlot]?.p} 슬롯`:""}</div>
               <select value={formFilter} onChange={e=>setFormFilter(e.target.value)} style={{...INPUT,fontSize:11,padding:"4px 8px"}}>
                 <option value="all">전체</option>
@@ -1983,18 +1983,18 @@ export default function App(){
                 const v=ovr(p.attrs), inL=lineup.includes(p.id), inBench=bench.includes(p.id);
                 return (
                   <div key={p.id} onClick={()=>selSlot!==null?assignSlot(p.id):null}
-                    style={{display:"flex",alignItems:"center",gap:9,background:inL?"#0d2a1a":inBench?"#241a0a":"#071525",border:inL?"1px solid #1e5a30":inBench?"1px solid #5a3a1a":"1px solid #0d2340",borderRadius:6,padding:"8px 10px",marginBottom:5,cursor:selSlot!==null?"pointer":"default",opacity:inL&&selSlot===null?0.6:1,transition:"all 0.15s"}}>
+                    style={{display:"flex",alignItems:"center",gap:9,background:inL?"#0d2a1a":inBench?"#241a0a":"#0a1c34",border:inL?"1px solid #1e5a30":inBench?"1px solid #5a3a1a":"1px solid #123258",borderRadius:6,padding:"8px 10px",marginBottom:5,cursor:selSlot!==null?"pointer":"default",opacity:inL&&selSlot===null?0.6:1,transition:"all 0.15s"}}>
                     <Avatar photo={p.photo} name={p.name} size={36} ovrVal={v} color={getColor(v)} mode={cardMode} number={p.number} pos={p.pos} />
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:13,fontWeight:700,color:"#e0f0ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
-                      <div style={{fontSize:10,color:"#5577aa"}}>{p.club}</div>
+                      <div style={{fontSize:13,fontWeight:700,color:"#e6f1ff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
+                      <div style={{fontSize:10,color:"#6f97c4"}}>{p.club}</div>
                     </div>
                     <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2}}>
-                      <div style={{background:"#0d2340",borderRadius:3,padding:"1px 6px",fontSize:11,fontWeight:700,color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif"}}>{p.pos}</div>
+                      <div style={{background:"#123258",borderRadius:3,padding:"1px 6px",fontSize:11,fontWeight:700,color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif"}}>{p.pos}</div>
                       <div style={{fontSize:14,fontWeight:900,color:getColor(v),fontFamily:"'Oswald',sans-serif"}}>{v}</div>
                     </div>
                     {inL && <span style={{fontSize:9,color:"#69f0ae",fontWeight:700,flexShrink:0}}>✓</span>}
-                    <button onClick={e=>{e.stopPropagation(); toggleBench(p.id);}} style={{background:"transparent",border:`1px solid ${inBench?"#5a3a1a":"#1e3a5f"}`,color:inBench?"#ffb84d":"#5577aa",borderRadius:4,padding:"3px 7px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,cursor:"pointer",flexShrink:0}}>{inBench?"벤치 제외":"벤치+"}</button>
+                    <button onClick={e=>{e.stopPropagation(); toggleBench(p.id);}} style={{background:"transparent",border:`1px solid ${inBench?"#5a3a1a":"#1d4a86"}`,color:inBench?"#ffb84d":"#6f97c4",borderRadius:4,padding:"3px 7px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,cursor:"pointer",flexShrink:0}}>{inBench?"벤치 제외":"벤치+"}</button>
                   </div>
                 );
               })}
@@ -2008,33 +2008,33 @@ export default function App(){
         <div className="team-view" style={{flex:1,overflowY:"auto",padding:"16px 24px"}}>
           <div style={{display:"flex",alignItems:"center",marginBottom:16}}>
             <span style={{fontFamily:"'Oswald',sans-serif",fontSize:19,fontWeight:700,letterSpacing:2}}>📅 경기 일정</span>
-            <button onClick={startAddMatch} style={{marginLeft:"auto",background:"linear-gradient(135deg,#1e6ba8,#0d4a7a)",border:"none",color:"#fff",borderRadius:5,padding:"7px 16px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>+ 경기 추가</button>
+            <button onClick={startAddMatch} style={{marginLeft:"auto",background:"linear-gradient(135deg,#1e6fbf,#0d4a7a)",border:"none",color:"#fff",borderRadius:5,padding:"7px 16px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>+ 경기 추가</button>
           </div>
           {addingMatch && (
-            <div style={{...cardStyle,border:"1px solid #1e3a5f",marginBottom:16}}>
+            <div style={{...cardStyle,border:"1px solid #1d4a86",marginBottom:16}}>
               <div style={{fontSize:11,color:"#4499dd",fontWeight:700,letterSpacing:1,marginBottom:9}}>새 경기 등록</div>
               <div style={{display:"flex",gap:9,alignItems:"flex-end",flexWrap:"wrap"}}>
                 <div style={{flex:1,minWidth:130}}>
-                  <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>날짜</div>
+                  <div style={{fontSize:10,color:"#4f82c4",marginBottom:3}}>날짜</div>
                   <input type="date" value={newMatch.date} onChange={e=>setNewMatch(m=>({...m,date:e.target.value}))} style={INPUT} />
                 </div>
                 <div style={{flex:2,minWidth:150}}>
-                  <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>상대팀</div>
+                  <div style={{fontSize:10,color:"#4f82c4",marginBottom:3}}>상대팀</div>
                   <input value={newMatch.opponent} onChange={e=>setNewMatch(m=>({...m,opponent:e.target.value}))} placeholder="예: 안양 유나이티드" style={INPUT} />
                 </div>
                 <div style={{flex:1,minWidth:100}}>
-                  <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>홈/원정</div>
+                  <div style={{fontSize:10,color:"#4f82c4",marginBottom:3}}>홈/원정</div>
                   <select value={newMatch.homeAway} onChange={e=>setNewMatch(m=>({...m,homeAway:e.target.value}))} style={INPUT}>
                     <option value="home">홈</option>
                     <option value="away">원정</option>
                   </select>
                 </div>
                 <div style={{flex:2,minWidth:150}}>
-                  <div style={{fontSize:10,color:"#4477aa",marginBottom:3}}>리그/대회 (선택)</div>
+                  <div style={{fontSize:10,color:"#4f82c4",marginBottom:3}}>리그/대회 (선택)</div>
                   <input value={newMatch.competition} onChange={e=>setNewMatch(m=>({...m,competition:e.target.value}))} placeholder="예: 사회인리그 3부" style={INPUT} />
                 </div>
-                <button onClick={saveNewMatch} style={{background:"#1e6ba8",border:"none",color:"#fff",borderRadius:5,padding:"8px 16px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>저장</button>
-                <button onClick={()=>setAddingMatch(false)} style={{background:"#1a2a3a",border:"1px solid #1e3a5f",color:"#8899aa",borderRadius:5,padding:"8px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>취소</button>
+                <button onClick={saveNewMatch} style={{background:"#1e6fbf",border:"none",color:"#fff",borderRadius:5,padding:"8px 16px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>저장</button>
+                <button onClick={()=>setAddingMatch(false)} style={{background:"#132a48",border:"1px solid #1d4a86",color:"#8899aa",borderRadius:5,padding:"8px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>취소</button>
               </div>
             </div>
           )}
@@ -2043,25 +2043,25 @@ export default function App(){
               const avgO = matchAvgOvr(m);
               return (
                 <div key={m.id} onClick={()=>openMatch(m)}
-                  style={{background:"#071525",border:activeMatchId===m.id?"1px solid #2a8ad4":"1px solid #0d2340",borderLeft:`4px solid ${m.homeAway==="home"?"#1e6ba8":"#c0392b"}`,borderRadius:8,padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:14}}>
+                  style={{background:"#0a1c34",border:activeMatchId===m.id?"1px solid #3a8ae0":"1px solid #123258",borderLeft:`4px solid ${m.homeAway==="home"?"#1e6fbf":"#c0392b"}`,borderRadius:8,padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:14}}>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
                       <span style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700}}>vs {m.opponent}</span>
-                      <span style={{fontSize:10,fontWeight:700,color:m.homeAway==="home"?"#4499dd":"#ef7a68",background:m.homeAway==="home"?"#0d2340":"#2a1010",borderRadius:3,padding:"2px 7px"}}>{m.homeAway==="home"?"홈":"원정"}</span>
+                      <span style={{fontSize:10,fontWeight:700,color:m.homeAway==="home"?"#4499dd":"#ef7a68",background:m.homeAway==="home"?"#123258":"#2a1010",borderRadius:3,padding:"2px 7px"}}>{m.homeAway==="home"?"홈":"원정"}</span>
                     </div>
-                    <div style={{fontSize:11,color:"#5577aa"}}>{m.date}{m.competition?` · ${m.competition}`:""}</div>
+                    <div style={{fontSize:11,color:"#6f97c4"}}>{m.date}{m.competition?` · ${m.competition}`:""}</div>
                   </div>
                   <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2,flexShrink:0}}>
-                    <span style={{fontSize:11,fontWeight:700,color:"#88bbdd"}}>{formationShort(m.formation)}</span>
-                    <span style={{fontSize:14,fontWeight:900,color:avgO!=null?getColor(avgO):"#335577",fontFamily:"'Oswald',sans-serif"}}>{avgO!=null?`OVR ${avgO}`:"미배치"}</span>
+                    <span style={{fontSize:11,fontWeight:700,color:"#8fbaf0"}}>{formationShort(m.formation)}</span>
+                    <span style={{fontSize:14,fontWeight:900,color:avgO!=null?getColor(avgO):"#4a6ea0",fontFamily:"'Oswald',sans-serif"}}>{avgO!=null?`OVR ${avgO}`:"미배치"}</span>
                   </div>
-                  <button onClick={e=>{e.stopPropagation(); handlePrintMatch(m);}} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#88bbdd",borderRadius:5,padding:"5px 9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",flexShrink:0}}>🖨</button>
-                  <button onClick={e=>{e.stopPropagation(); handleShareMatch(m);}} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#88bbdd",borderRadius:5,padding:"5px 9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",flexShrink:0}}>📤</button>
+                  <button onClick={e=>{e.stopPropagation(); handlePrintMatch(m);}} style={{background:"transparent",border:"1px solid #1d4a86",color:"#8fbaf0",borderRadius:5,padding:"5px 9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",flexShrink:0}}>🖨</button>
+                  <button onClick={e=>{e.stopPropagation(); handleShareMatch(m);}} style={{background:"transparent",border:"1px solid #1d4a86",color:"#8fbaf0",borderRadius:5,padding:"5px 9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",flexShrink:0}}>📤</button>
                   <button onClick={e=>{e.stopPropagation(); delMatch(m.id);}} style={{background:"#2a1010",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"5px 9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",flexShrink:0}}>삭제</button>
                 </div>
               );
             })}
-            {sortedMatches.length===0 && <p style={{color:"#335577",fontSize:12,textAlign:"center",marginTop:20}}>등록된 경기가 없습니다. "+ 경기 추가"로 새 경기를 등록하세요.</p>}
+            {sortedMatches.length===0 && <p style={{color:"#4a6ea0",fontSize:12,textAlign:"center",marginTop:20}}>등록된 경기가 없습니다. "+ 경기 추가"로 새 경기를 등록하세요.</p>}
           </div>
         </div>
       )}
@@ -2069,31 +2069,31 @@ export default function App(){
       {/* 선수별 레이더 편집 모달 */}
       {radarEditOpen && sel && (
         <div onClick={()=>setRadarEditOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"#0a1a2e",border:"1px solid #1e3a5f",borderRadius:12,width:640,maxWidth:"96vw",maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,padding:"14px 18px",borderBottom:"1px solid #1e3a5f"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#0a1a2e",border:"1px solid #1d4a86",borderRadius:12,width:640,maxWidth:"96vw",maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"14px 18px",borderBottom:"1px solid #1d4a86"}}>
               <div style={{fontFamily:"'Oswald',sans-serif",fontSize:16,fontWeight:700,color:"#4499dd"}}>🎯 {sel.name} 레이더 편집</div>
               {usingCustomRadar
                 ? <span style={{fontSize:9,color:"#69f0ae",border:"1px solid #1e5a30",borderRadius:100,padding:"2px 8px"}}>선수 전용</span>
-                : <span style={{fontSize:9,color:"#5577aa",border:"1px solid #1e3a5f",borderRadius:100,padding:"2px 8px"}}>기본 레이더 사용 중</span>}
-              <button onClick={()=>setRadarEditOpen(false)} style={{marginLeft:"auto",background:"transparent",border:"none",color:"#5577aa",fontSize:18,cursor:"pointer"}}>✕</button>
+                : <span style={{fontSize:9,color:"#6f97c4",border:"1px solid #1d4a86",borderRadius:100,padding:"2px 8px"}}>기본 레이더 사용 중</span>}
+              <button onClick={()=>setRadarEditOpen(false)} style={{marginLeft:"auto",background:"transparent",border:"none",color:"#6f97c4",fontSize:18,cursor:"pointer"}}>✕</button>
             </div>
             <div style={{padding:"14px 18px",overflowY:"auto"}}>
-              <div style={{fontSize:11,color:"#5a7a9a",marginBottom:12,lineHeight:1.6,background:"#071525",border:"1px solid #0d2340",borderRadius:6,padding:"8px 11px"}}>
-                선수마다 테스트 항목이 다를 수 있으니 <b style={{color:"#88bbdd"}}>이 선수만의 레이더</b>를 만들 수 있어요. 아래에서 능력치를 누르면 <b style={{color:"#88bbdd"}}>그 능력치 하나가 축</b>으로 추가되고, 여러 능력치를 한 축에 묶을 수도 있습니다. 편집하지 않으면 기본 레이더로 표시됩니다.
+              <div style={{fontSize:11,color:"#6f97c4",marginBottom:12,lineHeight:1.6,background:"#0a1c34",border:"1px solid #123258",borderRadius:6,padding:"8px 11px"}}>
+                선수마다 테스트 항목이 다를 수 있으니 <b style={{color:"#8fbaf0"}}>이 선수만의 레이더</b>를 만들 수 있어요. 아래에서 능력치를 누르면 <b style={{color:"#8fbaf0"}}>그 능력치 하나가 축</b>으로 추가되고, 여러 능력치를 한 축에 묶을 수도 있습니다. 편집하지 않으면 기본 레이더로 표시됩니다.
               </div>
 
               <div style={{fontSize:11,color:"#4499dd",fontWeight:700,letterSpacing:1,marginBottom:6}}>＋ 능력치를 축으로 추가 (개별 항목)</div>
               <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:14}}>
                 {abilities.map(ab=>(
-                  <button key={ab.key} onClick={()=>addPlayerAxisFromAbility(ab.key)} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#88bbdd",borderRadius:100,padding:"3px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>+ {ab.label}</button>
+                  <button key={ab.key} onClick={()=>addPlayerAxisFromAbility(ab.key)} style={{background:"transparent",border:"1px solid #1d4a86",color:"#8fbaf0",borderRadius:100,padding:"3px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>+ {ab.label}</button>
                 ))}
-                {abilities.length===0 && <span style={{fontSize:11,color:"#335577"}}>능력치가 없습니다</span>}
+                {abilities.length===0 && <span style={{fontSize:11,color:"#4a6ea0"}}>능력치가 없습니다</span>}
               </div>
 
               <div style={{fontSize:11,color:"#4499dd",fontWeight:700,letterSpacing:1,marginBottom:6}}>현재 축 ({playerRadar.length}) — {usingCustomRadar?"이 선수 전용":"기본값(편집 시 전용으로 전환)"}</div>
               {playerRadar.map(ax=>(
-                <div key={ax.id} style={{border:"1px solid #0d2340",borderRadius:8,marginBottom:10,overflow:"hidden"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,background:"#0d1b2a",padding:"8px 10px",flexWrap:"wrap"}}>
+                <div key={ax.id} style={{border:"1px solid #123258",borderRadius:8,marginBottom:10,overflow:"hidden"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,background:"#0c1f38",padding:"8px 10px",flexWrap:"wrap"}}>
                     <span style={{fontSize:9,color:"#4a6a8a"}}>축</span>
                     <input value={ax.label} onChange={e=>renamePlayerAxis(ax.id,e.target.value)} style={{...INPUT,fontWeight:700,width:150}} />
                     <span style={{fontSize:10,color:"#4a6a8a"}}>{ax.keys.length}개</span>
@@ -2102,19 +2102,19 @@ export default function App(){
                   <div style={{padding:"8px 10px",display:"flex",flexWrap:"wrap",gap:5}}>
                     {abilities.map(ab=>{
                       const on = ax.keys.includes(ab.key);
-                      return <button key={ab.key} onClick={()=>togglePlayerAxisKey(ax.id,ab.key)} style={{background:on?"#1e6ba8":"transparent",border:on?"1px solid #2a8ad4":"1px solid #1e3a5f",color:on?"#fff":"#5577aa",borderRadius:100,padding:"3px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>{on?"✓ ":""}{ab.label}</button>;
+                      return <button key={ab.key} onClick={()=>togglePlayerAxisKey(ax.id,ab.key)} style={{background:on?"#1e6fbf":"transparent",border:on?"1px solid #3a8ae0":"1px solid #1d4a86",color:on?"#fff":"#6f97c4",borderRadius:100,padding:"3px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>{on?"✓ ":""}{ab.label}</button>;
                     })}
                   </div>
                 </div>
               ))}
-              <button onClick={addPlayerAxis} style={{background:"#1e3a5f",border:"1px solid #2a5580",color:"#88bbdd",borderRadius:6,padding:"7px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 빈 축 추가</button>
+              <button onClick={addPlayerAxis} style={{background:"#1d4a86",border:"1px solid #2a63a8",color:"#8fbaf0",borderRadius:6,padding:"7px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 빈 축 추가</button>
             </div>
-            <div style={{padding:"12px 18px",borderTop:"1px solid #1e3a5f",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+            <div style={{padding:"12px 18px",borderTop:"1px solid #1d4a86",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>{ if(window.confirm("축을 모두 비우고 이 선수만의 레이더를 새로 만들까요?")) clearPlayerRadar(); }} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>비우고 새로 만들기</button>
-                <button onClick={()=>{ if(window.confirm("이 선수의 레이더를 기본 레이더로 되돌릴까요?")) resetPlayerRadar(); }} disabled={!usingCustomRadar} style={{background:"transparent",border:"1px solid #1e3a5f",color:usingCustomRadar?"#5577aa":"#2a4055",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:usingCustomRadar?"pointer":"default"}}>기본 레이더로 되돌리기</button>
+                <button onClick={()=>{ if(window.confirm("축을 모두 비우고 이 선수만의 레이더를 새로 만들까요?")) clearPlayerRadar(); }} style={{background:"transparent",border:"1px solid #1d4a86",color:"#6f97c4",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>비우고 새로 만들기</button>
+                <button onClick={()=>{ if(window.confirm("이 선수의 레이더를 기본 레이더로 되돌릴까요?")) resetPlayerRadar(); }} disabled={!usingCustomRadar} style={{background:"transparent",border:"1px solid #1d4a86",color:usingCustomRadar?"#6f97c4":"#2a4055",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:usingCustomRadar?"pointer":"default"}}>기본 레이더로 되돌리기</button>
               </div>
-              <button onClick={()=>setRadarEditOpen(false)} style={{background:"#1e6ba8",border:"none",color:"#fff",borderRadius:5,padding:"8px 22px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>완료</button>
+              <button onClick={()=>setRadarEditOpen(false)} style={{background:"#1e6fbf",border:"none",color:"#fff",borderRadius:5,padding:"8px 22px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>완료</button>
             </div>
           </div>
         </div>
@@ -2124,18 +2124,18 @@ export default function App(){
       {attrMgrOpen && (
         <div onClick={()=>setAttrMgrOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16}}>
           <datalist id="unit-presets">{UNIT_PRESETS.filter(Boolean).map(u=><option key={u} value={u} />)}</datalist>
-          <div onClick={e=>e.stopPropagation()} style={{background:"#0a1a2e",border:"1px solid #1e3a5f",borderRadius:12,width:680,maxWidth:"96vw",maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
-            <div style={{display:"flex",alignItems:"center",padding:"14px 18px",borderBottom:"1px solid #1e3a5f"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#0a1a2e",border:"1px solid #1d4a86",borderRadius:12,width:680,maxWidth:"96vw",maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
+            <div style={{display:"flex",alignItems:"center",padding:"14px 18px",borderBottom:"1px solid #1d4a86"}}>
               <div style={{fontFamily:"'Oswald',sans-serif",fontSize:16,fontWeight:700,color:"#4499dd"}}>⚙ 능력치 관리</div>
-              <button onClick={()=>setAttrMgrOpen(false)} style={{marginLeft:"auto",background:"transparent",border:"none",color:"#5577aa",fontSize:18,cursor:"pointer"}}>✕</button>
+              <button onClick={()=>setAttrMgrOpen(false)} style={{marginLeft:"auto",background:"transparent",border:"none",color:"#6f97c4",fontSize:18,cursor:"pointer"}}>✕</button>
             </div>
             <div style={{padding:"14px 18px",overflowY:"auto"}}>
-              <div style={{fontSize:11,color:"#5a7a9a",marginBottom:12,lineHeight:1.6,background:"#071525",border:"1px solid #0d2340",borderRadius:6,padding:"8px 11px"}}>
-                이름을 바꾸거나 항목을 삭제해도 <b style={{color:"#88bbdd"}}>기존 선수 데이터는 안전하게 유지</b>됩니다. 단위가 있는 항목은 "기준 최소~최대"와 방향으로 0~100 점수(OVR·색상)를 계산합니다. 단위를 비우면 0~100 점수형입니다.
+              <div style={{fontSize:11,color:"#6f97c4",marginBottom:12,lineHeight:1.6,background:"#0a1c34",border:"1px solid #123258",borderRadius:6,padding:"8px 11px"}}>
+                이름을 바꾸거나 항목을 삭제해도 <b style={{color:"#8fbaf0"}}>기존 선수 데이터는 안전하게 유지</b>됩니다. 단위가 있는 항목은 "기준 최소~최대"와 방향으로 0~100 점수(OVR·색상)를 계산합니다. 단위를 비우면 0~100 점수형입니다.
               </div>
               {groups.map(g=>(
-                <div key={g.id} style={{border:"1px solid #0d2340",borderRadius:8,marginBottom:12,overflow:"hidden"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,background:"#0d1b2a",padding:"8px 10px",flexWrap:"wrap"}}>
+                <div key={g.id} style={{border:"1px solid #123258",borderRadius:8,marginBottom:12,overflow:"hidden"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,background:"#0c1f38",padding:"8px 10px",flexWrap:"wrap"}}>
                     <span style={{fontSize:9,color:"#4a6a8a"}}>그룹</span>
                     <input value={g.name} onChange={e=>renameGroup(g.id,e.target.value)} style={{...INPUT,fontWeight:700,width:150}} />
                     <span style={{fontSize:10,color:"#4a6a8a"}}>{(abilitiesByGroup[g.id]||[]).length}개</span>
@@ -2144,7 +2144,7 @@ export default function App(){
                   </div>
                   <div style={{padding:"4px 10px 8px"}}>
                     {(abilitiesByGroup[g.id]||[]).map(ab=>(
-                      <div key={ab.key} style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",padding:"7px 0",borderBottom:"1px solid #0d2340"}}>
+                      <div key={ab.key} style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",padding:"7px 0",borderBottom:"1px solid #123258"}}>
                         <input value={ab.label} onChange={e=>updateAbility(ab.key,{label:e.target.value})} placeholder="이름" style={{...INPUT,width:104}} />
                         <input list="unit-presets" value={ab.unit} onChange={e=>updateAbility(ab.key,{unit:e.target.value})} placeholder="점수" title="단위 (비우면 0~100 점수)" style={{...INPUT,width:60}} />
                         <select value={ab.direction} onChange={e=>updateAbility(ab.key,{direction:e.target.value})} title="좋은 방향" style={{...INPUT,width:98}}>
@@ -2161,20 +2161,20 @@ export default function App(){
                         <button onClick={()=>{ if(window.confirm(`'${ab.label}' 능력치를 삭제할까요?\n선수에 입력된 값은 보존됩니다.`)) deleteAbility(ab.key); }} style={{marginLeft:"auto",background:"transparent",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"4px 8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>삭제</button>
                       </div>
                     ))}
-                    {(abilitiesByGroup[g.id]||[]).length===0 && <div style={{fontSize:11,color:"#335577",padding:"7px 0"}}>능력치 없음 — "+ 능력치"로 추가하세요.</div>}
+                    {(abilitiesByGroup[g.id]||[]).length===0 && <div style={{fontSize:11,color:"#4a6ea0",padding:"7px 0"}}>능력치 없음 — "+ 능력치"로 추가하세요.</div>}
                   </div>
                 </div>
               ))}
-              <button onClick={addGroup} style={{background:"#1e3a5f",border:"1px solid #2a5580",color:"#88bbdd",borderRadius:6,padding:"7px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 그룹 추가</button>
+              <button onClick={addGroup} style={{background:"#1d4a86",border:"1px solid #2a63a8",color:"#8fbaf0",borderRadius:6,padding:"7px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 그룹 추가</button>
 
               {/* 레이더는 이제 그룹(기술/신체/정신…) 기준으로 자동 구성됩니다 */}
-              <div style={{marginTop:18,paddingTop:12,borderTop:"1px solid #1e3a5f",fontSize:11,color:"#5a7a9a",lineHeight:1.6}}>
-                📊 레이더는 위 <b style={{color:"#88bbdd"}}>그룹(기술/신체/정신…)</b> 기준으로 색깔별로 겹쳐 표시되고, 프로필에서 그룹을 누르면 그 그룹의 세부 축(능력치)이 보입니다. 그룹·능력치를 여기서 편집하면 레이더에도 그대로 반영됩니다.
+              <div style={{marginTop:18,paddingTop:12,borderTop:"1px solid #1d4a86",fontSize:11,color:"#6f97c4",lineHeight:1.6}}>
+                📊 레이더는 위 <b style={{color:"#8fbaf0"}}>그룹(기술/신체/정신…)</b> 기준으로 색깔별로 겹쳐 표시되고, 프로필에서 그룹을 누르면 그 그룹의 세부 축(능력치)이 보입니다. 그룹·능력치를 여기서 편집하면 레이더에도 그대로 반영됩니다.
               </div>
             </div>
-            <div style={{padding:"12px 18px",borderTop:"1px solid #1e3a5f",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
-              <button onClick={()=>{ if(window.confirm("모든 그룹/능력치를 기본값으로 되돌릴까요?\n선수에 입력된 값 자체는 유지됩니다.")){ setSchema(DEFAULT_SCHEMA); setACat(DEFAULT_SCHEMA.groups[0].id); } }} style={{background:"transparent",border:"1px solid #1e3a5f",color:"#5577aa",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>기본값 복원</button>
-              <button onClick={()=>setAttrMgrOpen(false)} style={{background:"#1e6ba8",border:"none",color:"#fff",borderRadius:5,padding:"8px 22px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>완료</button>
+            <div style={{padding:"12px 18px",borderTop:"1px solid #1d4a86",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+              <button onClick={()=>{ if(window.confirm("모든 그룹/능력치를 기본값으로 되돌릴까요?\n선수에 입력된 값 자체는 유지됩니다.")){ setSchema(DEFAULT_SCHEMA); setACat(DEFAULT_SCHEMA.groups[0].id); } }} style={{background:"transparent",border:"1px solid #1d4a86",color:"#6f97c4",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>기본값 복원</button>
+              <button onClick={()=>setAttrMgrOpen(false)} style={{background:"#1e6fbf",border:"none",color:"#fff",borderRadius:5,padding:"8px 22px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>완료</button>
             </div>
           </div>
         </div>
@@ -2183,13 +2183,13 @@ export default function App(){
       {/* SNAPSHOT MODAL */}
       {snapModal && (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999}}>
-          <div style={{background:"#0a1a2e",border:"1px solid #1e3a5f",borderRadius:10,padding:"20px 24px",width:280}}>
+          <div style={{background:"#0a1a2e",border:"1px solid #1d4a86",borderRadius:10,padding:"20px 24px",width:280}}>
             <div style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700,marginBottom:11,color:"#4499dd"}}>📸 스냅샷 기록</div>
-            <div style={{fontSize:11,color:"#4477aa",marginBottom:5}}>스냅샷 이름</div>
+            <div style={{fontSize:11,color:"#4f82c4",marginBottom:5}}>스냅샷 이름</div>
             <input value={snapLabel} onChange={e=>setSnapLabel(e.target.value)} placeholder="예: 2025 시즌 종료" style={{...INPUT,marginBottom:13}} />
             <div style={{display:"flex",gap:8}}>
-              <button onClick={recordSnap} style={{background:"#1e6ba8",border:"none",color:"#fff",borderRadius:5,padding:"7px 17px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>기록</button>
-              <button onClick={()=>setSnapModal(false)} style={{background:"#1a2a3a",border:"1px solid #1e3a5f",color:"#8899aa",borderRadius:5,padding:"7px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>취소</button>
+              <button onClick={recordSnap} style={{background:"#1e6fbf",border:"none",color:"#fff",borderRadius:5,padding:"7px 17px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>기록</button>
+              <button onClick={()=>setSnapModal(false)} style={{background:"#132a48",border:"1px solid #1d4a86",color:"#8899aa",borderRadius:5,padding:"7px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>취소</button>
             </div>
           </div>
         </div>
