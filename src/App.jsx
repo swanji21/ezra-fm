@@ -848,6 +848,105 @@ function inferLineupTeam(lineup, players, teamMap, teamFilter){
 
 // ---------- MAIN ----------
 
+// ---------- 멘탈 설문 (정신력 자가 평가) ----------
+const MENTAL_SURVEY = [
+  {label:"자신감",attrKey:"leadership",questions:["나는 어려운 상대와 경기할 때도 잘할 수 있다고 믿는다","실수를 한 뒤에도 다음 플레이에 자신 있게 도전한다","중요한 순간(승부차기, 결정적 기회)에 내가 해결할 수 있다고 생각한다","내 강점이 무엇인지 잘 알고 경기에서 활용한다"]},
+  {label:"집중력",attrKey:"workRate",questions:["경기 중 관중이나 주변 소리에 흔들리지 않고 집중한다","경기 끝까지 긴장을 늦추지 않고 플레이한다","지고 있어도 다음 플레이에 빠르게 집중을 되찾는다","훈련할 때도 딴생각 없이 과제에 몰입한다"]},
+  {label:"투지·승부욕",attrKey:"aggression",questions:["지고 있어도 끝까지 포기하지 않고 뛴다","몸싸움이나 경합 상황을 피하지 않는다","이기고 싶은 마음이 강하다","힘든 훈련도 끝까지 해내려고 노력한다"]},
+  {label:"감정 조절",attrKey:"composure",questions:["심판 판정이 불리해도 흥분하지 않고 경기에 집중한다","실수를 했을 때 화를 내기보다 빨리 회복한다","긴장되는 경기에서도 몸이 굳지 않고 평소처럼 움직인다","동료의 실수에도 짜증 내지 않고 격려한다"]},
+  {label:"팀워크·소통",attrKey:"teamwork",questions:["경기 중 동료에게 적극적으로 말을 걸고 신호를 준다","내 개인 기록보다 팀의 승리를 더 중요하게 생각한다","동료가 어려워할 때 먼저 도와주려 한다","감독·코치의 지시를 잘 이해하고 따르려 한다"]},
+  {label:"회복탄력성",attrKey:"vision",questions:["경기에서 진 뒤에도 다음 경기를 위해 마음을 다잡는다","부진할 때도 훈련을 더 열심히 하려고 한다","비판이나 지적을 들어도 발전의 기회로 받아들인다","부상이나 슬럼프를 겪어도 다시 회복할 수 있다고 믿는다"]},
+  {label:"경기 지능·판단력",attrKey:"decisions",questions:["경기 상황을 빠르게 읽고 다음 플레이를 예측한다","패스할지 드리블할지 순간적으로 잘 판단한다","상대의 약점을 파악해 공략하려 한다","경기 흐름에 따라 내 역할을 스스로 조절한다"]},
+];
+
+function MentalSurveyModal({player,abilities,onSave,onClose}){
+  const SCALE=[1,2,3,4,5];
+  const SCALE_LABELS={1:"전혀 아니다",2:"아니다",3:"보통",4:"그렇다",5:"매우 그렇다"};
+  const TOTAL_Q=MENTAL_SURVEY.length*4;
+  const [answers,setAnswers]=useState(()=>MENTAL_SURVEY.map(d=>d.questions.map(()=>null)));
+  const [step,setStep]=useState("survey");
+  const answered=answers.flat().filter(x=>x!==null).length;
+  const allDone=answered===TOTAL_Q;
+  const domainAvgs=MENTAL_SURVEY.map((_d,di)=>{const vals=answers[di].filter(x=>x!==null);return vals.length===4?vals.reduce((s,x)=>s+x,0)/4:null;});
+  const attrLabelOf=k=>abilities?.find(a=>a.key===k)?.label||k;
+  function toAttrScale(avg){return Math.round(((avg-1)/4)*69+30);}
+  function setAnswer(di,qi,val){setAnswers(prev=>prev.map((d,i)=>i===di?d.map((v,j)=>j===qi?val:v):d));}
+  function handleSave(){const u={};MENTAL_SURVEY.forEach((d,di)=>{const avg=domainAvgs[di];if(avg!==null)u[d.attrKey]=toAttrScale(avg);});onSave(u);}
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:1000,overflowY:"auto",padding:"16px 0",WebkitOverflowScrolling:"touch"}}>
+      <div style={{background:"#0a1c34",border:"1px solid #1d4a86",borderRadius:10,width:"min(520px,94vw)",display:"flex",flexDirection:"column",maxHeight:"92vh"}}>
+        <div style={{padding:"14px 16px",borderBottom:"1px solid #123258",flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:step==="survey"?8:0}}>
+            <div style={{flex:1}}>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700,color:"#f5b133",letterSpacing:1}}>🧠 멘탈 설문 측정</div>
+              <div style={{fontSize:11,color:"#6f97c4",marginTop:2}}>{player?.name} · 정신력 자가 평가 (28문항)</div>
+            </div>
+            <button onClick={onClose} style={{background:"transparent",border:"none",color:"#6f97c4",fontSize:20,cursor:"pointer",lineHeight:1,padding:"4px 6px"}}>✕</button>
+          </div>
+          {step==="survey"&&<><div style={{height:5,background:"#0c1f38",borderRadius:3,overflow:"hidden"}}><div style={{width:`${(answered/TOTAL_Q)*100}%`,height:"100%",background:"linear-gradient(90deg,#1e6fbf,#f5b133)",borderRadius:3,transition:"width 0.25s"}} /></div><div style={{fontSize:10,color:"#6f97c4",marginTop:3,textAlign:"right"}}>{answered} / {TOTAL_Q} 문항 완료</div></>}
+          {step==="preview"&&<div style={{fontSize:12,color:"#f5b133",fontWeight:700,marginTop:4}}>✅ 28문항 완료 — 결과 확인 후 저장하세요</div>}
+        </div>
+        {step==="survey"&&(
+          <div style={{flex:1,overflowY:"auto",padding:"12px 16px",WebkitOverflowScrolling:"touch"}}>
+            {MENTAL_SURVEY.map((domain,di)=>(
+              <div key={di} style={{marginBottom:20}}>
+                <div style={{fontSize:13,fontWeight:700,color:"#8fbaf0",letterSpacing:0.5,marginBottom:8,paddingBottom:5,borderBottom:"1px solid #123258",fontFamily:"'Oswald',sans-serif",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                  <span style={{color:"#f5b133"}}>{di+1}.</span> {domain.label}
+                  <span style={{fontSize:10,color:"#4a6ea0",fontWeight:400,fontFamily:"'Barlow Condensed',sans-serif"}}>→ {attrLabelOf(domain.attrKey)}</span>
+                  {answers[di].filter(x=>x!==null).length===4&&<span style={{fontSize:10,color:"#69f0ae",marginLeft:"auto"}}>✓ 완료</span>}
+                </div>
+                {domain.questions.map((q,qi)=>{
+                  const val=answers[di][qi];const qNum=di*4+qi+1;
+                  return (
+                    <div key={qi} style={{marginBottom:12,background:"#0c1f38",borderRadius:7,padding:"10px 12px"}}>
+                      <div style={{fontSize:12,color:"#c0d8f0",marginBottom:8,lineHeight:1.55}}><span style={{color:"#4a6ea0",fontWeight:700}}>{qNum}. </span>{q}</div>
+                      <div style={{display:"flex",gap:4,marginBottom:4}}>
+                        {SCALE.map(s=><button key={s} onClick={()=>setAnswer(di,qi,s)} style={{flex:1,padding:"8px 2px",background:val===s?"#f5b133":"#0a1c34",border:val===s?"1px solid #f5b133":"1px solid #1d4a86",color:val===s?"#04101f":"#6f97c4",borderRadius:5,fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",cursor:"pointer"}} title={SCALE_LABELS[s]}>{s}</button>)}
+                      </div>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"#4a6ea0"}}><span>전혀 아니다</span><span>매우 그렇다</span></div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+        {step==="preview"&&(
+          <div style={{flex:1,overflowY:"auto",padding:"14px 16px",WebkitOverflowScrolling:"touch"}}>
+            <div style={{fontFamily:"'Oswald',sans-serif",fontSize:13,fontWeight:700,color:"#f5b133",marginBottom:10}}>📊 영역별 평균 점수</div>
+            <div style={{fontSize:11,color:"#6f97c4",marginBottom:12}}>아래 점수가 선수의 정신 능력치에 반영됩니다.</div>
+            {MENTAL_SURVEY.map((domain,di)=>{
+              const avg=domainAvgs[di];const attrLabel=attrLabelOf(domain.attrKey);const attrScore=avg!==null?toAttrScale(avg):null;
+              return (
+                <div key={di} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:"#0c1f38",border:"1px solid #123258",borderRadius:7,marginBottom:7}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"#e6f1ff",marginBottom:2}}>{domain.label}</div>
+                    <div style={{fontSize:10,color:"#4a6ea0"}}>→ {attrLabel}</div>
+                    <div style={{marginTop:5,height:4,background:"#0a1c34",borderRadius:2,overflow:"hidden"}}><div style={{width:attrScore?`${attrScore}%`:"0%",height:"100%",background:getColor(attrScore||0),borderRadius:2}} /></div>
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <div style={{fontSize:17,fontWeight:900,color:"#8fbaf0",fontFamily:"'Oswald',sans-serif"}}>{avg!==null?avg.toFixed(1):"-"}<span style={{fontSize:10,color:"#4a6ea0"}}> / 5</span></div>
+                    <div style={{fontSize:12,fontWeight:700,color:getColor(attrScore||0)}}>{attrScore||"-"}<span style={{fontSize:9,color:"#4a6ea0"}}> / 99</span></div>
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{marginTop:12,padding:"10px 12px",background:"#071525",border:"1px solid #1d4a86",borderRadius:7,fontSize:10,color:"#6f97c4",lineHeight:1.8}}>
+              <div style={{fontWeight:700,color:"#8fbaf0",marginBottom:5,fontSize:11}}>🔗 능력치 매칭 안내</div>
+              {MENTAL_SURVEY.map((d,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:6}}><span style={{color:"#8fbaf0"}}>{d.label}</span><span style={{color:"#4a6ea0"}}>→</span><span style={{color:"#f5b133"}}>{attrLabelOf(d.attrKey)}</span></div>))}
+              <div style={{marginTop:6,fontSize:9,color:"#4a6ea0"}}>설문 점수(1–5)는 능력치 범위(30–99)로 변환됩니다.</div>
+            </div>
+          </div>
+        )}
+        <div style={{padding:"10px 16px",borderTop:"1px solid #123258",flexShrink:0,display:"flex",gap:8}}>
+          {step==="survey"&&<><button onClick={onClose} style={{background:"#132a48",border:"1px solid #1d4a86",color:"#8899aa",borderRadius:5,padding:"9px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,cursor:"pointer"}}>취소</button><button onClick={()=>setStep("preview")} disabled={!allDone} style={{flex:1,background:allDone?"#1e6fbf":"#0c1f38",border:"none",color:allDone?"#fff":"#4a6ea0",borderRadius:5,padding:"9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:allDone?"pointer":"default",opacity:allDone?1:0.6}}>{allDone?"완료 → 결과 확인":`완료 (${answered}/${TOTAL_Q} 답변)`}</button></>}
+          {step==="preview"&&<><button onClick={()=>setStep("survey")} style={{background:"#132a48",border:"1px solid #1d4a86",color:"#8899aa",borderRadius:5,padding:"9px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,cursor:"pointer"}}>← 수정</button><button onClick={handleSave} style={{flex:1,background:"linear-gradient(135deg,#f5b133,#d9911c)",border:"none",color:"#04101f",borderRadius:5,padding:"9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>✅ 저장하기</button></>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App(){
   const [nav, setNav] = useState("선수");
   const [teams, setTeams] = useState(INIT_TEAMS);
@@ -882,6 +981,7 @@ export default function App(){
   const [schema, setSchema] = useState(DEFAULT_SCHEMA); // 사용자 편집 가능한 능력치 스키마
   const [attrMgrOpen, setAttrMgrOpen] = useState(false); // 능력치 관리 모달
   const [radarEditOpen, setRadarEditOpen] = useState(false); // 선수별 레이더 편집 모달
+  const [mentalSurveyPlayer, setMentalSurveyPlayer] = useState(null); // 멘탈 설문 대상 선수
   const [radarGroup, setRadarGroup] = useState(null); // 그룹 레이더 드릴다운 대상(그룹 id) / null=오버뷰
 
   const [matches, setMatches] = useState([]);
@@ -1197,6 +1297,14 @@ export default function App(){
   }
 
   function saveEdit(){ setPlayers(ps=>ps.map(p=>p.id===editD.id?editD:p)); setSel(editD); setEditing(false); }
+  function handleMentalSurveySave(attrUpdates){
+    const pid=mentalSurveyPlayer?.id;
+    if(!pid){ setMentalSurveyPlayer(null); return; }
+    setPlayers(ps=>ps.map(p=>p.id===pid?{...p,attrs:{...p.attrs,...attrUpdates}}:p));
+    if(sel?.id===pid) setSel(s=>({...s,attrs:{...s.attrs,...attrUpdates}}));
+    if(editing&&editD?.id===pid) setEditD(d=>({...d,attrs:{...d.attrs,...attrUpdates}}));
+    setMentalSurveyPlayer(null);
+  }
   function startEdit(){ setEditD(JSON.parse(JSON.stringify(sel))); setEditing(true); }
   function cancelEdit(){ setEditing(false); setEditD(null); }
   function delPlayer(){ const r=players.filter(p=>p.id!==sel.id); setPlayers(r); setSel(r[0]||null); }
@@ -1636,6 +1744,7 @@ export default function App(){
                       <>
                         <button onClick={startEdit} style={{background:"#1d4a86",border:"1px solid #2a63a8",color:"#8fbaf0",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>✏ 편집</button>
                         <button onClick={handlePrintPlayer} style={{background:"transparent",border:"1px solid #1d4a86",color:"#8fbaf0",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>🖨 프린트</button>
+                        <button onClick={()=>setMentalSurveyPlayer(sel)} style={{background:"linear-gradient(135deg,#f5b133,#d9911c)",border:"none",color:"#04101f",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>🧠 멘탈 설문</button>
                         <button onClick={delPlayer} style={{background:"#2a1010",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"7px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>삭제</button>
                       </>
                     )}
@@ -2193,6 +2302,11 @@ export default function App(){
             </div>
           </div>
         </div>
+      )}
+
+      {/* MENTAL SURVEY MODAL */}
+      {mentalSurveyPlayer && (
+        <MentalSurveyModal player={mentalSurveyPlayer} abilities={abilities} onSave={handleMentalSurveySave} onClose={()=>setMentalSurveyPlayer(null)} />
       )}
     </div>
   );
