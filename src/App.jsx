@@ -963,6 +963,8 @@ export default function App(){
   const [newTeam, setNewTeam] = useState({name:"",badge:"🏆",color:"#1e6fbf"});
   const [addTeam, setAddTeam] = useState(false);
   const [snapModal, setSnapModal] = useState(false);
+  const [importOpen, setImportOpen] = useState(false); // 아카데미 회원 불러오기
+  const [importText, setImportText] = useState("");
   const [snapLabel, setSnapLabel] = useState("");
   const [formation, setFormation] = useState("11v11 · 4-3-3");
   const [lineup, setLineup] = useState(Array(11).fill(null));
@@ -1319,6 +1321,44 @@ export default function App(){
     const p={...newP,history:[{date:TODAY,label:"등록",attrs:{...newP.attrs}}]};
     setPlayers(ps=>[...ps,p]); setSel(p); setAdding(false); setNewP(null);
   }
+  // 아카데미(EZRA FOOTBALL CLUB) 회원 명단 붙여넣기 → 선수로 등록
+  function importAcademy(){
+    let data;
+    try { data = JSON.parse(importText.trim()); }
+    catch(e){ alert("형식이 올바르지 않습니다.\n클럽앱에서 '📤 FM → 복사'한 내용을 그대로 붙여넣으세요."); return; }
+    const arr = Array.isArray(data) ? data : (data && Array.isArray(data.players) ? data.players : null);
+    if(!arr || !arr.length){ alert("불러올 회원 데이터가 없습니다."); return; }
+    const POSMAP = {FW:"ST", MF:"CM", DF:"CB", GK:"GK"};
+    const ageFromBirth = b => {
+      if(!b) return 20;
+      const d = new Date(b); if(isNaN(d.getTime())) return 20;
+      const t = new Date(); let a = t.getFullYear()-d.getFullYear();
+      const md = t.getMonth()-d.getMonth();
+      if(md<0 || (md===0 && t.getDate()<d.getDate())) a--;
+      return (a>0 && a<100) ? a : 20;
+    };
+    const existing = new Set(players.map(p => (p.name||"").trim()));
+    const seedAttrs = Object.fromEntries(abilities.map(a => [a.key, a.unit ? "" : 65]));
+    const fresh = [];
+    let skipped = 0;
+    arr.forEach((r, i) => {
+      const name = String(r && r.name || "").trim();
+      if(!name || existing.has(name)){ skipped++; return; }
+      existing.add(name);
+      fresh.push({
+        id: Date.now()+i, name,
+        pos: POSMAP[r.pos] || (r.pos || "ST"),
+        age: ageFromBirth(r.birth),
+        gender:"", level:"", club:"에스라 풋볼 클럽", number:"",
+        heightCm:"", weightKg:"", size:"", tid: teams[0]?.id || "", photo:null,
+        attrs: {...seedAttrs},
+        history: [{date:TODAY, label:"아카데미 등록", attrs:{...seedAttrs}}]
+      });
+    });
+    if(fresh.length){ setPlayers(ps => [...ps, ...fresh]); setSel(fresh[0]); }
+    setImportOpen(false); setImportText("");
+    alert(`${fresh.length}명 불러오기 완료${skipped ? ` · ${skipped}명 건너뜀(중복/이름 없음)` : ""}`);
+  }
   function recordSnap(){
     if(!sel) return;
     const snap={date:TODAY,label:snapLabel||"스냅샷",attrs:{...sel.attrs}};
@@ -1610,8 +1650,9 @@ export default function App(){
                 </>
               )}
             </div>
-            <div style={{padding:"9px 10px",borderTop:"1px solid #123258"}}>
+            <div style={{padding:"9px 10px",borderTop:"1px solid #123258",display:"flex",flexDirection:"column",gap:6}}>
               <button onClick={startAdd} style={{width:"100%",background:"linear-gradient(135deg,#1e6fbf,#0d4a7a)",border:"none",color:"#fff",borderRadius:5,padding:"8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>+ 선수 추가</button>
+              <button onClick={()=>{setImportText("");setImportOpen(true);}} style={{width:"100%",background:"transparent",border:"1px solid #1d4a86",color:"#6f97c4",borderRadius:5,padding:"7px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>📥 아카데미 회원 불러오기</button>
             </div>
           </div>
 
@@ -2299,6 +2340,25 @@ export default function App(){
             <div style={{display:"flex",gap:8}}>
               <button onClick={recordSnap} style={{background:"#1e6fbf",border:"none",color:"#fff",borderRadius:5,padding:"7px 17px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>기록</button>
               <button onClick={()=>setSnapModal(false)} style={{background:"#132a48",border:"1px solid #1d4a86",color:"#8899aa",borderRadius:5,padding:"7px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 아카데미 회원 불러오기 모달 */}
+      {importOpen && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999,padding:16}}>
+          <div style={{background:"#0a1a2e",border:"1px solid #1d4a86",borderRadius:10,padding:"20px 22px",width:"100%",maxWidth:380}}>
+            <div style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700,marginBottom:8,color:"#4499dd"}}>📥 아카데미 회원 불러오기</div>
+            <div style={{fontSize:11.5,color:"#6f97c4",lineHeight:1.6,marginBottom:11}}>
+              EZRA FOOTBALL CLUB(클럽 앱)에서 <b style={{color:"#a9c8ef"}}>회원 → 📤 FM → 복사</b>한 내용을 붙여넣고 불러오기를 누르세요.
+              이름·포지션·나이가 선수로 등록되며, 능력치는 이후 직접 입력합니다. 같은 이름은 건너뜁니다.
+            </div>
+            <textarea value={importText} onChange={e=>setImportText(e.target.value)} placeholder='여기에 붙여넣기 …  {"source":"ezra-academy", ...}'
+              style={{width:"100%",height:130,background:"#06121f",border:"1px solid #1d4a86",borderRadius:7,color:"#cfe0f5",fontSize:11,fontFamily:"monospace",padding:9,resize:"none",boxSizing:"border-box"}} />
+            <div style={{display:"flex",gap:8,marginTop:12}}>
+              <button onClick={()=>{setImportOpen(false);setImportText("");}} style={{flex:1,background:"#132a48",border:"1px solid #1d4a86",color:"#8899aa",borderRadius:5,padding:"8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,cursor:"pointer"}}>취소</button>
+              <button onClick={importAcademy} style={{flex:2,background:"linear-gradient(135deg,#1e6fbf,#0d4a7a)",border:"none",color:"#fff",borderRadius:5,padding:"8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>불러오기</button>
             </div>
           </div>
         </div>
