@@ -11,6 +11,18 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="EZRA FM" />
     <title>EZRA Football Manager</title>
+    <script>
+      // One-time cleanup of a legacy PWA service worker that cached old builds
+      // and blocked updates from reaching installed users. See public/sw.js.
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations()
+          .then(function (rs) { rs.forEach(function (r) { r.unregister(); }); })
+          .catch(function () {});
+        if (window.caches && caches.keys) {
+          caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); }).catch(function () {});
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
