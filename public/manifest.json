@@ -4,8 +4,8 @@
   "description": "에스라 풋볼 매니저 · 선수 능력치 관리",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#030c14",
-  "theme_color": "#071525",
+  "background_color": "#04101f",
+  "theme_color": "#071c34",
   "icons": [
     {
       "src": "/icon-192.png",
