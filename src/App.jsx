@@ -17,13 +17,19 @@ const POSITION_PROFILES = {
   RW:  {pace:0.9,acceleration:0.9,dribbling:0.9,crossing:0.8,technique:0.8,agility:0.8,finishing:0.6},
   ST:  {finishing:0.95,composure:0.9,pace:0.8,acceleration:0.8,heading:0.8,strength:0.7,longShots:0.7,technique:0.6},
 };
+function defaultPosWeights(key){
+  const r = {};
+  Object.entries(POSITION_PROFILES).forEach(([pos, weights]) => { if(weights[key]!=null) r[pos]=weights[key]; });
+  return r;
+}
 function calcPositionFits(attrs, abilities){
   const result = {};
-  Object.entries(POSITION_PROFILES).forEach(([pos, weights]) => {
+  POSITIONS.forEach(pos => {
     let total = 0, wSum = 0;
-    Object.entries(weights).forEach(([key, w]) => {
-      const ab = abilities.find(a => a.key === key);
-      const s = abScore(ab, attrs?.[key]);
+    abilities.forEach(ab => {
+      const w = ab.posWeights?.[pos];
+      if(!w) return;
+      const s = abScore(ab, attrs?.[ab.key]);
       if(s !== null){ total += s * w; wSum += w * 100; }
     });
     result[pos] = wSum > 0 ? Math.round(total / wSum * 100) : 0;
@@ -42,7 +48,7 @@ const ATTRS = {
 const DEFAULT_GROUP_META = [["기술","g_tech"],["신체","g_phys"],["정신","g_ment"]];
 const DEFAULT_GROUPS = DEFAULT_GROUP_META.map(([name,id]) => ({ id, name }));
 const DEFAULT_ABILITIES = DEFAULT_GROUP_META.flatMap(([name,id]) =>
-  ATTRS[name].map(a => ({ key:a.k, label:a.l, group:id, unit:"", direction:"high", min:0, max:100 }))
+  ATTRS[name].map(a => ({ key:a.k, label:a.l, group:id, unit:"", direction:"high", min:0, max:100, posWeights:defaultPosWeights(a.k) }))
 );
 // 레이더 기본 축(FM식 자유 구성) — 각 축은 이름 + 포함할 능력치 key 목록. 사용자가 편집 가능.
 const DEFAULT_RADAR = [
@@ -100,6 +106,7 @@ function normalizeSchema(s){
     direction: a.direction === "low" ? "low" : "high",
     min: Number.isFinite(Number(a.min)) ? Number(a.min) : 0,
     max: Number.isFinite(Number(a.max)) ? Number(a.max) : 100,
+    posWeights: (a.posWeights && typeof a.posWeights === "object") ? a.posWeights : defaultPosWeights(String(a.key)),
   }));
   // 레이더 축 구성 (없으면 기본 6축). 각 축은 이름 + 능력치 key 목록.
   const radar = Array.isArray(s.radar) && s.radar.length
@@ -2462,24 +2469,49 @@ export default function App(){
                     <button onClick={()=>{ if(window.confirm(`'${g.name}' 그룹을 삭제할까요?\n소속 능력치는 삭제되지 않고 첫 그룹으로 이동합니다.`)) deleteGroup(g.id); }} style={{background:"#2a1010",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"4px 8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>그룹 삭제</button>
                   </div>
                   <div style={{padding:"4px 10px 8px"}}>
-                    {(abilitiesByGroup[g.id]||[]).map(ab=>(
-                      <div key={ab.key} style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",padding:"7px 0",borderBottom:"1px solid #123258"}}>
-                        <input value={ab.label} onChange={e=>updateAbility(ab.key,{label:e.target.value})} placeholder="이름" style={{...INPUT,width:104}} />
-                        <input list="unit-presets" value={ab.unit} onChange={e=>updateAbility(ab.key,{unit:e.target.value})} placeholder="점수" title="단위 (비우면 0~100 점수)" style={{...INPUT,width:60}} />
-                        <select value={ab.direction} onChange={e=>updateAbility(ab.key,{direction:e.target.value})} title="좋은 방향" style={{...INPUT,width:98}}>
-                          <option value="high">↑ 높을수록</option>
-                          <option value="low">↓ 낮을수록</option>
-                        </select>
-                        <span style={{fontSize:9,color:"#4a6a8a"}}>기준</span>
-                        <input type="number" value={ab.min} onChange={e=>updateAbility(ab.key,{min:e.target.value===""?0:Number(e.target.value)})} title="기준 최소" style={{...INPUT,width:52,padding:"5px 4px"}} />
-                        <span style={{fontSize:10,color:"#4a6a8a"}}>~</span>
-                        <input type="number" value={ab.max} onChange={e=>updateAbility(ab.key,{max:e.target.value===""?100:Number(e.target.value)})} title="기준 최대" style={{...INPUT,width:52,padding:"5px 4px"}} />
-                        <select value={ab.group} onChange={e=>updateAbility(ab.key,{group:e.target.value})} title="그룹" style={{...INPUT,width:84}}>
-                          {groups.map(gg=><option key={gg.id} value={gg.id}>{gg.name}</option>)}
-                        </select>
-                        <button onClick={()=>{ if(window.confirm(`'${ab.label}' 능력치를 삭제할까요?\n선수에 입력된 값은 보존됩니다.`)) deleteAbility(ab.key); }} style={{marginLeft:"auto",background:"transparent",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"4px 8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>삭제</button>
+                    {(abilitiesByGroup[g.id]||[]).map(ab=>{
+                      const PW_LEVELS = [0, 0.5, 0.7, 0.9];
+                      const PW_LABELS = {0:"—", 0.5:"보조", 0.7:"중요", 0.9:"핵심"};
+                      const PW_COLORS = {0:"#4a6a8a", 0.5:"#4499dd", 0.7:"#f4a72b", 0.9:"#00e676"};
+                      return (
+                      <div key={ab.key} style={{padding:"7px 0",borderBottom:"1px solid #123258"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",marginBottom:6}}>
+                          <input value={ab.label} onChange={e=>updateAbility(ab.key,{label:e.target.value})} placeholder="이름" style={{...INPUT,width:104}} />
+                          <input list="unit-presets" value={ab.unit} onChange={e=>updateAbility(ab.key,{unit:e.target.value})} placeholder="점수" title="단위 (비우면 0~100 점수)" style={{...INPUT,width:60}} />
+                          <select value={ab.direction} onChange={e=>updateAbility(ab.key,{direction:e.target.value})} title="좋은 방향" style={{...INPUT,width:98}}>
+                            <option value="high">↑ 높을수록</option>
+                            <option value="low">↓ 낮을수록</option>
+                          </select>
+                          <span style={{fontSize:9,color:"#4a6a8a"}}>기준</span>
+                          <input type="number" value={ab.min} onChange={e=>updateAbility(ab.key,{min:e.target.value===""?0:Number(e.target.value)})} title="기준 최소" style={{...INPUT,width:52,padding:"5px 4px"}} />
+                          <span style={{fontSize:10,color:"#4a6a8a"}}>~</span>
+                          <input type="number" value={ab.max} onChange={e=>updateAbility(ab.key,{max:e.target.value===""?100:Number(e.target.value)})} title="기준 최대" style={{...INPUT,width:52,padding:"5px 4px"}} />
+                          <select value={ab.group} onChange={e=>updateAbility(ab.key,{group:e.target.value})} title="그룹" style={{...INPUT,width:84}}>
+                            {groups.map(gg=><option key={gg.id} value={gg.id}>{gg.name}</option>)}
+                          </select>
+                          <button onClick={()=>{ if(window.confirm(`'${ab.label}' 능력치를 삭제할까요?\n선수에 입력된 값은 보존됩니다.`)) deleteAbility(ab.key); }} style={{marginLeft:"auto",background:"transparent",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"4px 8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>삭제</button>
+                        </div>
+                        <div style={{display:"flex",alignItems:"center",gap:4,flexWrap:"wrap"}}>
+                          <span style={{fontSize:9,color:"#4a6a8a",marginRight:2}}>포지션</span>
+                          {POSITIONS.map(pos=>{
+                            const cur = ab.posWeights?.[pos] ?? 0;
+                            const idx = PW_LEVELS.indexOf(cur) === -1 ? 0 : PW_LEVELS.indexOf(cur);
+                            const next = PW_LEVELS[(idx+1)%PW_LEVELS.length];
+                            const col = PW_COLORS[cur];
+                            return (
+                              <button key={pos} title={`${pos}: ${PW_LABELS[cur]} → 클릭하면 ${PW_LABELS[next]}`}
+                                onClick={()=>{ const pw={...(ab.posWeights||{})}; if(next===0) delete pw[pos]; else pw[pos]=next; updateAbility(ab.key,{posWeights:pw}); }}
+                                style={{padding:"2px 7px",borderRadius:4,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer",
+                                  border:`1px solid ${cur>0?col:"#1e3040"}`,background:cur>0?col+"22":"transparent",color:col}}>
+                                {pos}{cur>0&&<span style={{fontSize:9,marginLeft:2,opacity:0.8}}>{PW_LABELS[cur]}</span>}
+                              </button>
+                            );
+                          })}
+                          <button onClick={()=>updateAbility(ab.key,{posWeights:{}})} style={{padding:"2px 6px",borderRadius:4,fontSize:9,cursor:"pointer",border:"1px solid #1e3040",background:"transparent",color:"#4a6a8a"}} title="전체 해제">✕</button>
+                        </div>
                       </div>
-                    ))}
+                      );
+                    })}
                     {(abilitiesByGroup[g.id]||[]).length===0 && <div style={{fontSize:11,color:"#4a6ea0",padding:"7px 0"}}>능력치 없음 — "+ 능력치"로 추가하세요.</div>}
                   </div>
                 </div>
