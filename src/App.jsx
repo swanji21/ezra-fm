@@ -992,6 +992,7 @@ export default function App(){
   const [importOpen, setImportOpen] = useState(false); // 아카데미 회원 불러오기
   const [importText, setImportText] = useState("");
   const [snapLabel, setSnapLabel] = useState("");
+  const [selPosTab, setSelPosTab] = useState(null);
   const [formation, setFormation] = useState("11v11 · 4-3-3");
   const [lineup, setLineup] = useState(Array(11).fill(null));
   const [selSlot, setSelSlot] = useState(null);
@@ -1934,59 +1935,137 @@ export default function App(){
                   const topPos = sorted[0]?.[0];
                   const posColors = {GK:"#f4a72b",CB:"#4499dd",LB:"#4499dd",RB:"#4499dd",CDM:"#44bb88",CM:"#44bb88",CAM:"#44bb88",LW:"#ee6644",RW:"#ee6644",ST:"#ee6644"};
                   const posGroupLabel = {GK:"GK",CB:"수비",LB:"수비",RB:"수비",CDM:"미드",CM:"미드",CAM:"미드",LW:"공격",RW:"공격",ST:"공격"};
+                  const POS_ORDER = ["GK","CB","LB","RB","CDM","CM","CAM","LW","RW","ST"];
                   return (
                   <div>
-                    <div style={{...cardStyle,marginBottom:12,display:"flex",alignItems:"center",gap:16}}>
-                      <div style={{textAlign:"center",minWidth:72}}>
-                        <div style={{fontSize:32,fontWeight:900,color:posColors[topPos]||"#4499dd",fontFamily:"'Oswald',sans-serif",lineHeight:1}}>{topPos}</div>
-                        <div style={{fontSize:10,color:"#4477aa",marginTop:3}}>최적 포지션</div>
-                      </div>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:12,color:"#88bbdd",fontWeight:700,marginBottom:4}}>{display.name}의 능력치 프로필 분석</div>
-                        <div style={{fontSize:11,color:"#4477aa"}}>상위 3: {sorted.slice(0,3).map(([p,s])=>`${p}(${s})`).join(" · ")}</div>
-                        <div style={{fontSize:10,color:"#335577",marginTop:4}}>※ 현재 측정 능력치 기반 · 실제 전술 적응력은 별도</div>
+                    {/* 포지션 선택 버튼 */}
+                    <div style={{...cardStyle,marginBottom:12,padding:"10px 12px"}}>
+                      <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:8}}>포지션 선택</div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                        {POS_ORDER.map(pos=>{
+                          const s = fits[pos]??0;
+                          const active = selPosTab===pos;
+                          const col = posColors[pos];
+                          return (
+                            <button key={pos} onClick={()=>setSelPosTab(active?null:pos)}
+                              style={{padding:"5px 11px",borderRadius:6,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer",
+                                border:`1.5px solid ${active?col:"#1e3a5f"}`,
+                                background:active?col+"22":"#0d1b2a",
+                                color:active?col:"#4477aa"}}>
+                              {pos}
+                              <span style={{marginLeft:4,fontSize:11,fontWeight:900,color:active?col:s>=70?"#00e676":s>=50?"#ffeb3b":"#ef5350"}}>{s}</span>
+                            </button>
+                          );
+                        })}
+                        {selPosTab&&<button onClick={()=>setSelPosTab(null)} style={{padding:"5px 11px",borderRadius:6,fontSize:11,cursor:"pointer",border:"1px solid #1e3a5f",background:"transparent",color:"#4477aa"}}>전체보기</button>}
                       </div>
                     </div>
-                    <div style={cardStyle}>
-                      <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:12}}>포지션별 적합도</div>
-                      {sorted.map(([pos, score], i) => (
-                        <div key={pos} style={{marginBottom:9}}>
-                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
-                            <div style={{width:38,fontSize:12,fontWeight:700,color:i<3?posColors[pos]:"#4477aa",fontFamily:"'Barlow Condensed',sans-serif"}}>{pos}</div>
-                            <div style={{fontSize:10,color:"#335577",width:32}}>{posGroupLabel[pos]}</div>
-                            <div style={{flex:1,height:8,background:"#0d1b2a",borderRadius:4,overflow:"hidden"}}>
-                              <div style={{width:`${score/max*100}%`,height:"100%",background:i<3?posColors[pos]:"#1e3a5f",borderRadius:4}} />
+
+                    {/* 선택 포지션 상세 분석 */}
+                    {selPosTab ? (()=>{
+                      const pos = selPosTab;
+                      const score = fits[pos]??0;
+                      const col = posColors[pos];
+                      const weights = POSITION_PROFILES[pos]||{};
+                      const allKeys = Object.entries(weights).sort((a,b)=>b[1]-a[1]);
+                      return (
+                        <div>
+                          <div style={{...cardStyle,marginBottom:12,display:"flex",alignItems:"center",gap:16}}>
+                            <div style={{textAlign:"center",minWidth:72}}>
+                              <div style={{fontSize:36,fontWeight:900,color:col,fontFamily:"'Oswald',sans-serif",lineHeight:1}}>{pos}</div>
+                              <div style={{fontSize:10,color:"#4477aa",marginTop:3}}>{posGroupLabel[pos]}</div>
                             </div>
-                            <div style={{width:32,textAlign:"right",fontSize:13,fontWeight:700,color:i<3?posColors[pos]:"#4477aa",fontFamily:"'Oswald',sans-serif"}}>{score}</div>
-                            {i===0&&<span style={{fontSize:10,color:"#f4a72b"}}>★</span>}
+                            <div style={{flex:1}}>
+                              <div style={{fontSize:11,color:"#4477aa",marginBottom:4}}>{display.name} 포지션 적합도</div>
+                              <div style={{display:"flex",alignItems:"baseline",gap:6}}>
+                                <div style={{fontSize:38,fontWeight:900,color:score>=70?"#00e676":score>=50?"#ffeb3b":"#ef5350",fontFamily:"'Oswald',sans-serif",lineHeight:1}}>{score}</div>
+                                <div style={{fontSize:12,color:"#335577"}}>/100</div>
+                              </div>
+                              <div style={{marginTop:6,height:6,background:"#0d1b2a",borderRadius:3,overflow:"hidden"}}>
+                                <div style={{width:`${score}%`,height:"100%",background:score>=70?"#00e676":score>=50?"#ffeb3b":"#ef5350",borderRadius:3}} />
+                              </div>
+                            </div>
+                          </div>
+                          <div style={cardStyle}>
+                            <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:12}}>핵심 능력치 분석</div>
+                            {allKeys.map(([key, w])=>{
+                              const ab = abilities.find(a=>a.key===key);
+                              if(!ab) return null;
+                              const val = display.attrs?.[key];
+                              const s = abScore(ab, val);
+                              const needed = Math.round(w*100);
+                              return (
+                                <div key={key} style={{marginBottom:10}}>
+                                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                                    <div style={{flex:1,fontSize:11,color:"#88bbdd"}}>{ab.label}</div>
+                                    <div style={{fontSize:10,color:"#335577"}}>필요 {needed}</div>
+                                    <div style={{fontSize:13,fontWeight:700,color:s===null?"#335577":s>=70?"#00e676":s>=50?"#ffeb3b":"#ef5350",fontFamily:"'Oswald',sans-serif",width:28,textAlign:"right"}}>{s??"-"}</div>
+                                  </div>
+                                  <div style={{height:6,background:"#0d1b2a",borderRadius:3,overflow:"hidden",position:"relative"}}>
+                                    <div style={{position:"absolute",left:`${needed}%`,top:0,bottom:0,width:2,background:"#1e3a5f"}} />
+                                    {s!==null&&<div style={{width:`${s}%`,height:"100%",background:s>=70?"#00e676":s>=50?"#ffeb3b":"#ef5350",borderRadius:3,opacity:0.85}} />}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div style={{...cardStyle,marginTop:12}}>
+                            <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:8}}>강점 / 보완 필요</div>
+                            <div style={{display:"flex",gap:8}}>
+                              <div style={{flex:1}}>
+                                <div style={{fontSize:10,color:"#00e676",marginBottom:6}}>✓ 강점</div>
+                                {allKeys.filter(([key])=>{const ab=abilities.find(a=>a.key===key);const s=abScore(ab,display.attrs?.[key]);return s!==null&&s>=70;}).slice(0,4).map(([key])=>{
+                                  const ab=abilities.find(a=>a.key===key);
+                                  const s=abScore(ab,display.attrs?.[key]);
+                                  return <div key={key} style={{fontSize:11,color:"#00e676",marginBottom:4}}>● {ab.label} <span style={{fontWeight:700}}>{s}</span></div>;
+                                })}
+                                {allKeys.filter(([key])=>{const ab=abilities.find(a=>a.key===key);const s=abScore(ab,display.attrs?.[key]);return s!==null&&s>=70;}).length===0&&<div style={{fontSize:11,color:"#335577"}}>—</div>}
+                              </div>
+                              <div style={{flex:1}}>
+                                <div style={{fontSize:10,color:"#ef5350",marginBottom:6}}>↑ 보완</div>
+                                {allKeys.filter(([key])=>{const ab=abilities.find(a=>a.key===key);const s=abScore(ab,display.attrs?.[key]);return s===null||s<50;}).slice(0,4).map(([key])=>{
+                                  const ab=abilities.find(a=>a.key===key);
+                                  const s=abScore(ab,display.attrs?.[key]);
+                                  return <div key={key} style={{fontSize:11,color:"#ef5350",marginBottom:4}}>● {ab.label} <span style={{fontWeight:700}}>{s??"-"}</span></div>;
+                                })}
+                                {allKeys.filter(([key])=>{const ab=abilities.find(a=>a.key===key);const s=abScore(ab,display.attrs?.[key]);return s===null||s<50;}).length===0&&<div style={{fontSize:11,color:"#335577"}}>—</div>}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                    <div style={{...cardStyle,marginTop:12}}>
-                      <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:10}}>상위 3 포지션 핵심 능력치</div>
-                      {sorted.slice(0,3).map(([pos])=>{
-                        const topKeys = Object.entries(POSITION_PROFILES[pos]||{}).sort((a,b)=>b[1]-a[1]).slice(0,4);
-                        return (
-                          <div key={pos} style={{marginBottom:10,paddingBottom:10,borderBottom:"1px solid #0d2340"}}>
-                            <div style={{fontSize:11,fontWeight:700,color:posColors[pos],marginBottom:6}}>{pos} — {posGroupLabel[pos]}</div>
-                            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                              {topKeys.map(([key])=>{
-                                const ab = abilities.find(a=>a.key===key);
-                                const val = display.attrs?.[key];
-                                const s = abScore(ab, val);
-                                return ab ? (
-                                  <div key={key} style={{background:"#0d1b2a",borderRadius:5,padding:"4px 9px",border:`1px solid ${s>=70?"#2a5580":"#1e3040"}`}}>
-                                    <span style={{fontSize:10,color:"#4477aa"}}>{ab.label} </span>
-                                    <span style={{fontSize:12,fontWeight:700,color:s>=70?"#00e676":s>=50?"#ffeb3b":"#ef5350"}}>{val??"-"}</span>
-                                  </div>
-                                ) : null;
-                              })}
+                      );
+                    })() : (
+                    /* 전체 순위 개요 */
+                    <div>
+                      <div style={{...cardStyle,marginBottom:12,display:"flex",alignItems:"center",gap:16}}>
+                        <div style={{textAlign:"center",minWidth:72}}>
+                          <div style={{fontSize:32,fontWeight:900,color:posColors[topPos]||"#4499dd",fontFamily:"'Oswald',sans-serif",lineHeight:1}}>{topPos}</div>
+                          <div style={{fontSize:10,color:"#4477aa",marginTop:3}}>최적 포지션</div>
+                        </div>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:12,color:"#88bbdd",fontWeight:700,marginBottom:4}}>{display.name}의 능력치 프로필 분석</div>
+                          <div style={{fontSize:11,color:"#4477aa"}}>상위 3: {sorted.slice(0,3).map(([p,s])=>`${p}(${s})`).join(" · ")}</div>
+                          <div style={{fontSize:10,color:"#335577",marginTop:4}}>※ 포지션 선택 시 상세 분석</div>
+                        </div>
+                      </div>
+                      <div style={cardStyle}>
+                        <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:12}}>포지션별 적합도</div>
+                        {sorted.map(([pos, score], i) => (
+                          <div key={pos} style={{marginBottom:9,cursor:"pointer"}} onClick={()=>setSelPosTab(pos)}>
+                            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                              <div style={{width:38,fontSize:12,fontWeight:700,color:i<3?posColors[pos]:"#4477aa",fontFamily:"'Barlow Condensed',sans-serif"}}>{pos}</div>
+                              <div style={{fontSize:10,color:"#335577",width:32}}>{posGroupLabel[pos]}</div>
+                              <div style={{flex:1,height:8,background:"#0d1b2a",borderRadius:4,overflow:"hidden"}}>
+                                <div style={{width:`${score/max*100}%`,height:"100%",background:i<3?posColors[pos]:"#1e3a5f",borderRadius:4}} />
+                              </div>
+                              <div style={{width:32,textAlign:"right",fontSize:13,fontWeight:700,color:i<3?posColors[pos]:"#4477aa",fontFamily:"'Oswald',sans-serif"}}>{score}</div>
+                              {i===0&&<span style={{fontSize:10,color:"#f4a72b"}}>★</span>}
                             </div>
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
+                    )}
                   </div>
                   );
                 })()}
