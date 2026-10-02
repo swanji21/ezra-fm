@@ -5,6 +5,32 @@ import { auth, googleProvider, db } from "./firebase";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LW","RW","ST"];
 
+const POSITION_PROFILES = {
+  GK:  {agility:0.9,balance:0.8,jumping:0.9,strength:0.7,composure:0.8,decisions:0.8,heading:0.6},
+  CB:  {heading:0.9,strength:0.9,jumping:0.8,pace:0.6,composure:0.8,decisions:0.8,aggression:0.7},
+  LB:  {pace:0.9,acceleration:0.8,crossing:0.8,stamina:0.8,agility:0.7,teamwork:0.8,workRate:0.8},
+  RB:  {pace:0.9,acceleration:0.8,crossing:0.8,stamina:0.8,agility:0.7,teamwork:0.8,workRate:0.8},
+  CDM: {strength:0.8,stamina:0.9,workRate:0.9,teamwork:0.8,composure:0.8,decisions:0.8,passing:0.7,aggression:0.7},
+  CM:  {passing:0.9,vision:0.9,decisions:0.8,workRate:0.8,teamwork:0.8,stamina:0.8,technique:0.7,firstTouch:0.7},
+  CAM: {vision:0.9,passing:0.8,technique:0.9,dribbling:0.8,decisions:0.8,firstTouch:0.8,composure:0.7},
+  LW:  {pace:0.9,acceleration:0.9,dribbling:0.9,crossing:0.8,technique:0.8,agility:0.8,finishing:0.6},
+  RW:  {pace:0.9,acceleration:0.9,dribbling:0.9,crossing:0.8,technique:0.8,agility:0.8,finishing:0.6},
+  ST:  {finishing:0.95,composure:0.9,pace:0.8,acceleration:0.8,heading:0.8,strength:0.7,longShots:0.7,technique:0.6},
+};
+function calcPositionFits(attrs, abilities){
+  const result = {};
+  Object.entries(POSITION_PROFILES).forEach(([pos, weights]) => {
+    let total = 0, wSum = 0;
+    Object.entries(weights).forEach(([key, w]) => {
+      const ab = abilities.find(a => a.key === key);
+      const s = abScore(ab, attrs?.[key]);
+      if(s !== null){ total += s * w; wSum += w * 100; }
+    });
+    result[pos] = wSum > 0 ? Math.round(total / wSum * 100) : 0;
+  });
+  return result;
+}
+
 const ATTRS = {
   기술:[{k:"dribbling",l:"드리블"},{k:"passing",l:"패스"},{k:"finishing",l:"결정력"},{k:"technique",l:"테크닉"},{k:"crossing",l:"크로스"},{k:"longShots",l:"중거리슛"},{k:"heading",l:"헤딩"},{k:"firstTouch",l:"볼트래핑"}],
   신체:[{k:"pace",l:"속도"},{k:"acceleration",l:"가속"},{k:"strength",l:"피지컬"},{k:"stamina",l:"체력"},{k:"jumping",l:"점프"},{k:"agility",l:"민첩성"},{k:"balance",l:"균형감"}],
@@ -1491,7 +1517,7 @@ export default function App(){
   }
 
   const NAV=["선수","팀 관리","베스트 11","경기 일정"];
-  const DTABS=["개요","능력치","성장 추적"];
+  const DTABS=["개요","능력치","포지션 적합도","성장 추적"];
 
   const cardStyle = {background:"#0a1c34",border:"1px solid #123258",borderRadius:8,padding:"12px 15px"};
 
@@ -1896,6 +1922,70 @@ export default function App(){
                       {curAbs.map(ab=>(
                         <Bar key={ab.key} ab={ab} value={editing?editD.attrs[ab.key]:display.attrs[ab.key]} editing={editing} onChange={v=>setEditD(d=>({...d,attrs:{...d.attrs,[ab.key]:v}}))} />
                       ))}
+                    </div>
+                  </div>
+                  );
+                })()}
+
+                {dtab==="포지션 적합도" && (()=>{
+                  const fits = calcPositionFits(display.attrs, abilities);
+                  const sorted = Object.entries(fits).sort((a,b)=>b[1]-a[1]);
+                  const max = sorted[0]?.[1] || 1;
+                  const topPos = sorted[0]?.[0];
+                  const posColors = {GK:"#f4a72b",CB:"#4499dd",LB:"#4499dd",RB:"#4499dd",CDM:"#44bb88",CM:"#44bb88",CAM:"#44bb88",LW:"#ee6644",RW:"#ee6644",ST:"#ee6644"};
+                  const posGroupLabel = {GK:"GK",CB:"수비",LB:"수비",RB:"수비",CDM:"미드",CM:"미드",CAM:"미드",LW:"공격",RW:"공격",ST:"공격"};
+                  return (
+                  <div>
+                    <div style={{...cardStyle,marginBottom:12,display:"flex",alignItems:"center",gap:16}}>
+                      <div style={{textAlign:"center",minWidth:72}}>
+                        <div style={{fontSize:32,fontWeight:900,color:posColors[topPos]||"#4499dd",fontFamily:"'Oswald',sans-serif",lineHeight:1}}>{topPos}</div>
+                        <div style={{fontSize:10,color:"#4477aa",marginTop:3}}>최적 포지션</div>
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:12,color:"#88bbdd",fontWeight:700,marginBottom:4}}>{display.name}의 능력치 프로필 분석</div>
+                        <div style={{fontSize:11,color:"#4477aa"}}>상위 3: {sorted.slice(0,3).map(([p,s])=>`${p}(${s})`).join(" · ")}</div>
+                        <div style={{fontSize:10,color:"#335577",marginTop:4}}>※ 현재 측정 능력치 기반 · 실제 전술 적응력은 별도</div>
+                      </div>
+                    </div>
+                    <div style={cardStyle}>
+                      <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:12}}>포지션별 적합도</div>
+                      {sorted.map(([pos, score], i) => (
+                        <div key={pos} style={{marginBottom:9}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                            <div style={{width:38,fontSize:12,fontWeight:700,color:i<3?posColors[pos]:"#4477aa",fontFamily:"'Barlow Condensed',sans-serif"}}>{pos}</div>
+                            <div style={{fontSize:10,color:"#335577",width:32}}>{posGroupLabel[pos]}</div>
+                            <div style={{flex:1,height:8,background:"#0d1b2a",borderRadius:4,overflow:"hidden"}}>
+                              <div style={{width:`${score/max*100}%`,height:"100%",background:i<3?posColors[pos]:"#1e3a5f",borderRadius:4}} />
+                            </div>
+                            <div style={{width:32,textAlign:"right",fontSize:13,fontWeight:700,color:i<3?posColors[pos]:"#4477aa",fontFamily:"'Oswald',sans-serif"}}>{score}</div>
+                            {i===0&&<span style={{fontSize:10,color:"#f4a72b"}}>★</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{...cardStyle,marginTop:12}}>
+                      <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:10}}>상위 3 포지션 핵심 능력치</div>
+                      {sorted.slice(0,3).map(([pos])=>{
+                        const topKeys = Object.entries(POSITION_PROFILES[pos]||{}).sort((a,b)=>b[1]-a[1]).slice(0,4);
+                        return (
+                          <div key={pos} style={{marginBottom:10,paddingBottom:10,borderBottom:"1px solid #0d2340"}}>
+                            <div style={{fontSize:11,fontWeight:700,color:posColors[pos],marginBottom:6}}>{pos} — {posGroupLabel[pos]}</div>
+                            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                              {topKeys.map(([key])=>{
+                                const ab = abilities.find(a=>a.key===key);
+                                const val = display.attrs?.[key];
+                                const s = abScore(ab, val);
+                                return ab ? (
+                                  <div key={key} style={{background:"#0d1b2a",borderRadius:5,padding:"4px 9px",border:`1px solid ${s>=70?"#2a5580":"#1e3040"}`}}>
+                                    <span style={{fontSize:10,color:"#4477aa"}}>{ab.label} </span>
+                                    <span style={{fontSize:12,fontWeight:700,color:s>=70?"#00e676":s>=50?"#ffeb3b":"#ef5350"}}>{val??"-"}</span>
+                                  </div>
+                                ) : null;
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                   );
