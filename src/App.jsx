@@ -998,6 +998,8 @@ export default function App(){
   const [snapModal, setSnapModal] = useState(false);
   const [importOpen, setImportOpen] = useState(false); // 아카데미 회원 불러오기
   const [importText, setImportText] = useState("");
+  const [importPreview, setImportPreview] = useState(null); // {fresh, skipped, raw}
+  const [importManual, setImportManual] = useState(false);
   const [snapLabel, setSnapLabel] = useState("");
   const [selPosTab, setSelPosTab] = useState(null);
   const [formation, setFormation] = useState("11v11 · 4-3-3");
@@ -1355,13 +1357,13 @@ export default function App(){
     const p={...newP,history:[{date:TODAY,label:"등록",attrs:{...newP.attrs}}]};
     setPlayers(ps=>[...ps,p]); setSel(p); setAdding(false); setNewP(null);
   }
-  // 아카데미(EZRA FOOTBALL CLUB) 회원 명단 붙여넣기 → 선수로 등록
-  function importAcademy(){
+  // 아카데미(EZRA FOOTBALL CLUB) 회원 명단 파싱 (텍스트 → 미리보기 데이터)
+  function parseImportText(text){
     let data;
-    try { data = JSON.parse(importText.trim()); }
-    catch(e){ alert("형식이 올바르지 않습니다.\n클럽앱에서 '📤 FM → 복사'한 내용을 그대로 붙여넣으세요."); return; }
+    try { data = JSON.parse(text.trim()); }
+    catch(e){ return {error:"형식이 올바르지 않습니다.\n클럽앱에서 '📤 FM → 복사'한 내용을 그대로 붙여넣으세요."}; }
     const arr = Array.isArray(data) ? data : (data && Array.isArray(data.players) ? data.players : null);
-    if(!arr || !arr.length){ alert("불러올 회원 데이터가 없습니다."); return; }
+    if(!arr || !arr.length) return {error:"불러올 회원 데이터가 없습니다."};
     const POSMAP = {FW:"ST", MF:"CM", DF:"CB", GK:"GK"};
     const ageFromBirth = b => {
       if(!b) return 20;
@@ -1373,8 +1375,7 @@ export default function App(){
     };
     const existing = new Set(players.map(p => (p.name||"").trim()));
     const seedAttrs = Object.fromEntries(abilities.map(a => [a.key, a.unit ? "" : 65]));
-    const fresh = [];
-    let skipped = 0;
+    const fresh = []; let skipped = 0;
     arr.forEach((r, i) => {
       const name = String(r && r.name || "").trim();
       if(!name || existing.has(name)){ skipped++; return; }
@@ -1389,9 +1390,30 @@ export default function App(){
         history: [{date:TODAY, label:"아카데미 등록", attrs:{...seedAttrs}}]
       });
     });
-    if(fresh.length){ setPlayers(ps => [...ps, ...fresh]); setSel(fresh[0]); }
-    setImportOpen(false); setImportText("");
+    return {fresh, skipped};
+  }
+  function confirmImport(){
+    if(!importPreview?.fresh?.length) return;
+    setPlayers(ps => [...ps, ...importPreview.fresh]);
+    setSel(importPreview.fresh[0]);
+    const {fresh, skipped} = importPreview;
+    setImportOpen(false); setImportText(""); setImportPreview(null); setImportManual(false);
     alert(`${fresh.length}명 불러오기 완료${skipped ? ` · ${skipped}명 건너뜀(중복/이름 없음)` : ""}`);
+  }
+  function importAcademy(){
+    const result = parseImportText(importText);
+    if(result.error){ alert(result.error); return; }
+    setImportPreview(result);
+  }
+  async function pasteFromClipboard(){
+    try {
+      const text = await navigator.clipboard.readText();
+      const result = parseImportText(text);
+      if(result.error){ alert(result.error); return; }
+      setImportPreview(result);
+    } catch(e){
+      setImportManual(true);
+    }
   }
   function recordSnap(){
     if(!sel) return;
@@ -2549,18 +2571,63 @@ export default function App(){
       {/* 아카데미 회원 불러오기 모달 */}
       {importOpen && (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999,padding:16}}>
-          <div style={{background:"#0a1a2e",border:"1px solid #1d4a86",borderRadius:10,padding:"20px 22px",width:"100%",maxWidth:380}}>
-            <div style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700,marginBottom:8,color:"#4499dd"}}>📥 아카데미 회원 불러오기</div>
-            <div style={{fontSize:11.5,color:"#6f97c4",lineHeight:1.6,marginBottom:11}}>
-              EZRA FOOTBALL CLUB(클럽 앱)에서 <b style={{color:"#a9c8ef"}}>회원 → 📤 FM → 복사</b>한 내용을 붙여넣고 불러오기를 누르세요.
-              이름·포지션·나이가 선수로 등록되며, 능력치는 이후 직접 입력합니다. 같은 이름은 건너뜁니다.
+          <div style={{background:"#0a1a2e",border:"1px solid #1d4a86",borderRadius:12,padding:"20px 22px",width:"100%",maxWidth:380}}>
+            <div style={{display:"flex",alignItems:"center",marginBottom:14}}>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700,color:"#4499dd"}}>📥 아카데미 회원 불러오기</div>
+              <button onClick={()=>{setImportOpen(false);setImportText("");setImportPreview(null);setImportManual(false);}} style={{marginLeft:"auto",background:"transparent",border:"none",color:"#6f97c4",fontSize:18,cursor:"pointer"}}>✕</button>
             </div>
-            <textarea value={importText} onChange={e=>setImportText(e.target.value)} placeholder='여기에 붙여넣기 …  {"source":"ezra-academy", ...}'
-              style={{width:"100%",height:130,background:"#06121f",border:"1px solid #1d4a86",borderRadius:7,color:"#cfe0f5",fontSize:11,fontFamily:"monospace",padding:9,resize:"none",boxSizing:"border-box"}} />
-            <div style={{display:"flex",gap:8,marginTop:12}}>
-              <button onClick={()=>{setImportOpen(false);setImportText("");}} style={{flex:1,background:"#132a48",border:"1px solid #1d4a86",color:"#8899aa",borderRadius:5,padding:"8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,cursor:"pointer"}}>취소</button>
-              <button onClick={importAcademy} style={{flex:2,background:"linear-gradient(135deg,#1e6fbf,#0d4a7a)",border:"none",color:"#fff",borderRadius:5,padding:"8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>불러오기</button>
-            </div>
+
+            {/* 미리보기 상태 */}
+            {importPreview ? (
+              <div>
+                <div style={{background:"#061828",border:"1px solid #1e3a5f",borderRadius:8,padding:"12px 14px",marginBottom:12}}>
+                  <div style={{fontSize:12,color:"#00e676",fontWeight:700,marginBottom:8}}>
+                    ✓ {importPreview.fresh.length}명 불러올 수 있습니다
+                    {importPreview.skipped>0&&<span style={{color:"#f4a72b",marginLeft:8,fontWeight:400}}>(중복 {importPreview.skipped}명 제외)</span>}
+                  </div>
+                  <div style={{maxHeight:160,overflowY:"auto",display:"flex",flexDirection:"column",gap:5}}>
+                    {importPreview.fresh.map((p,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:"1px solid #0d2340"}}>
+                        <span style={{fontSize:13,fontWeight:700,color:"#cfe0f5",flex:1}}>{p.name}</span>
+                        <span style={{fontSize:11,color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif"}}>{p.pos}</span>
+                        <span style={{fontSize:11,color:"#335577"}}>{p.age}세</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>setImportPreview(null)} style={{flex:1,background:"#132a48",border:"1px solid #1d4a86",color:"#8899aa",borderRadius:5,padding:"9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,cursor:"pointer"}}>← 다시</button>
+                  <button onClick={confirmImport} style={{flex:2,background:"linear-gradient(135deg,#1e6fbf,#0d4a7a)",border:"none",color:"#fff",borderRadius:5,padding:"9px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:700,cursor:"pointer"}}>등록 확정</button>
+                </div>
+              </div>
+            ) : importManual ? (
+              /* 직접 입력 폴백 */
+              <div>
+                <div style={{fontSize:11,color:"#6f97c4",marginBottom:8}}>클럽앱에서 복사한 내용을 아래에 붙여넣으세요.</div>
+                <textarea value={importText} onChange={e=>setImportText(e.target.value)} placeholder='{"source":"ezra-academy", ...}'
+                  style={{width:"100%",height:110,background:"#06121f",border:"1px solid #1d4a86",borderRadius:7,color:"#cfe0f5",fontSize:11,fontFamily:"monospace",padding:9,resize:"none",boxSizing:"border-box"}} />
+                <div style={{display:"flex",gap:8,marginTop:10}}>
+                  <button onClick={()=>setImportManual(false)} style={{flex:1,background:"#132a48",border:"1px solid #1d4a86",color:"#8899aa",borderRadius:5,padding:"8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,cursor:"pointer"}}>← 뒤로</button>
+                  <button onClick={importAcademy} style={{flex:2,background:"linear-gradient(135deg,#1e6fbf,#0d4a7a)",border:"none",color:"#fff",borderRadius:5,padding:"8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>확인</button>
+                </div>
+              </div>
+            ) : (
+              /* 기본 상태: 클립보드 붙여넣기 버튼 */
+              <div>
+                <div style={{fontSize:11.5,color:"#6f97c4",lineHeight:1.7,marginBottom:16,background:"#061828",border:"1px solid #123258",borderRadius:7,padding:"10px 12px"}}>
+                  EZRA FOOTBALL CLUB 앱에서<br/>
+                  <b style={{color:"#a9c8ef"}}>회원 탭 → 📤 FM으로 내보내기 → 복사</b><br/>
+                  하고 아래 버튼을 누르세요.
+                </div>
+                <button onClick={pasteFromClipboard}
+                  style={{width:"100%",padding:"14px",background:"linear-gradient(135deg,#1e6fbf,#0d4a7a)",border:"none",color:"#fff",borderRadius:8,fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:700,cursor:"pointer",marginBottom:10,letterSpacing:1}}>
+                  📋 클립보드에서 붙여넣기
+                </button>
+                <button onClick={()=>setImportManual(true)} style={{width:"100%",padding:"8px",background:"transparent",border:"1px solid #1e3a5f",color:"#4477aa",borderRadius:6,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>
+                  직접 입력
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
