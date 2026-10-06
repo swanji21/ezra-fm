@@ -291,9 +291,9 @@ function Avatar({photo,name,size,color,ovrVal,mode,number,pos}){
   );
 }
 
-function Bar({ab, value, editing, onChange}){
+function Bar({ab, value, editing, onChange, barColor}){
   const score = abScore(ab, value);                 // 0~100 정규화 점수 (값 없으면 null)
-  const col = score!=null ? getColor(score) : "#2f5c99";
+  const col = barColor || (score!=null ? getColor(score) : "#2f5c99");
   return (
     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
       <span style={{width:92,fontSize:11,color:"#8899aa",fontFamily:"'Barlow Condensed',sans-serif",flexShrink:0,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={ab.label}>
@@ -769,12 +769,11 @@ function buildPlayerReportFullDoc(p, team, abilities, groups, radarAxes){
     const col=grpC[gi%grpC.length];
     const rows=abs.map(ab=>{
       const raw=p.attrs?.[ab.key]; const sc=abScore(ab,raw); const val=fmtVal(ab,raw);
-      const bc=sc!=null?(sc>=70?"#1a7a4a":sc>=50?"#c97a00":"#aa2222"):"#ddd";
       return `<div style="margin-bottom:4px;display:flex;align-items:center;gap:5px;">
         <span style="font-size:9.5px;color:#444;width:62px;flex-shrink:0;overflow:hidden;white-space:nowrap;">${E(ab.label)}</span>
-        <div style="flex:1;height:7px;background:#ebebeb;border-radius:3px;overflow:hidden;"><div style="width:${sc??0}%;height:100%;background:${bc};border-radius:3px;"></div></div>
+        <div style="flex:1;height:7px;background:#ebebeb;border-radius:3px;overflow:hidden;"><div style="width:${sc??0}%;height:100%;background:${col};border-radius:3px;opacity:0.85;"></div></div>
         <span style="font-size:10.5px;font-weight:700;color:#111;width:26px;text-align:right;">${E(val)}</span>
-        <span style="font-size:9px;color:#999;width:18px;text-align:right;">${sc!=null?sc:""}</span>
+        <span style="font-size:9px;color:${col};font-weight:700;width:18px;text-align:right;">${sc!=null?sc:""}</span>
       </div>`;
     }).join("");
     return `<div style="margin-bottom:9px;"><div style="font-size:9.5px;font-weight:700;color:${col};letter-spacing:0.5px;border-left:3px solid ${col};padding-left:5px;margin-bottom:5px;">${E(g.name)}</div>${rows}</div>`;
@@ -2175,18 +2174,19 @@ export default function App(){
                         if(!atrs.length) return null;
                         const avg=groupScore(g.id, display.attrs, abilities);
                         const gAvg=cmpAvg.avgGroup[g.id]; const gm=cmpMark(avg,gAvg);
+                        const gc = groupColorAt(gi);
                         return (
                           <div key={g.id} style={{...cardStyle,flex:"1 1 220px",minWidth:200}}>
-                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:7,paddingBottom:5,borderBottom:"1px solid #1d4a86"}}>
-                              <span style={{fontSize:12,fontWeight:700,color:"#8fbaf0",letterSpacing:1}}>{g.name}</span>
+                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:7,paddingBottom:5,borderBottom:`1px solid ${gc}44`}}>
+                              <span style={{fontSize:12,fontWeight:700,color:gc,letterSpacing:1,borderLeft:`3px solid ${gc}`,paddingLeft:5}}>{g.name}</span>
                               <span style={{display:"flex",alignItems:"baseline",gap:5}}>
                                 <span style={{fontSize:9,color:"#4a6a8a"}}>Ø{gAvg}</span>
-                                <span style={{fontSize:15,fontWeight:900,color:getColor(avg),fontFamily:"'Oswald',sans-serif"}}>{avg}</span>
+                                <span style={{fontSize:15,fontWeight:900,color:gc,fontFamily:"'Oswald',sans-serif"}}>{avg}</span>
                                 <span style={{fontSize:10,color:gm.col}}>{gm.arrow}</span>
                               </span>
                             </div>
                             {atrs.map(ab=>{
-                              const raw=display.attrs[ab.key]; const sc=abScore(ab,raw); const col=sc!=null?getColor(sc):"#2f5c99";
+                              const raw=display.attrs[ab.key]; const sc=abScore(ab,raw);
                               const aRaw=cmpAvg.avgRaw[ab.key]; const aSc=cmpAvg.avgScore[ab.key]; const m=cmpMark(sc,aSc);
                               return (
                                 <div key={ab.key} style={{display:"flex",alignItems:"center",gap:6,padding:"3px 0"}}>
@@ -2194,7 +2194,7 @@ export default function App(){
                                     {ab.label}{ab.unit?<span style={{color:"#4a6a8a",fontSize:10}}> ({ab.unit})</span>:null}{ab.direction==="low"?<span style={{color:"#ff9800",fontSize:9}} title="낮을수록 좋음"> ↓</span>:null}
                                   </span>
                                   <span style={{fontSize:10,color:"#4a6a8a",minWidth:34,textAlign:"right",flexShrink:0}} title="비교 대상 평균">Ø{fmtAvg(ab,aRaw)}</span>
-                                  <span style={{fontSize:12.5,fontWeight:700,color:col,fontFamily:"'Barlow Condensed',sans-serif",minWidth:34,textAlign:"right",flexShrink:0}}>{fmtVal(ab,raw)}</span>
+                                  <span style={{fontSize:12.5,fontWeight:700,color:gc,fontFamily:"'Barlow Condensed',sans-serif",minWidth:34,textAlign:"right",flexShrink:0}}>{fmtVal(ab,raw)}</span>
                                   <span style={{fontSize:9,color:m.col,width:9,textAlign:"center",flexShrink:0}}>{m.arrow}</span>
                                 </div>
                               );
@@ -2209,19 +2209,25 @@ export default function App(){
                 {dtab==="능력치" && (()=>{
                   const curGroup = groups.find(g=>g.id===aCat) || groups[0];
                   const curAbs = curGroup ? (abilitiesByGroup[curGroup.id]||[]) : [];
+                  const curGi = groups.findIndex(g=>g.id===aCat);
+                  const curGrpColor = groupColorAt(curGi);
                   return (
                   <div>
                     <div style={{display:"flex",gap:3,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
-                      {groups.map(g=>(
-                        <button key={g.id} onClick={()=>setACat(g.id)} style={{background:curGroup?.id===g.id?"#1d4a86":"transparent",border:curGroup?.id===g.id?"1px solid #2a63a8":"1px solid #123258",color:curGroup?.id===g.id?"#8fbaf0":"#4f82c4",borderRadius:5,padding:"4px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>{g.name}</button>
-                      ))}
+                      {groups.map((g,gi)=>{
+                        const gc=groupColorAt(gi);
+                        const active=curGroup?.id===g.id;
+                        return (
+                        <button key={g.id} onClick={()=>setACat(g.id)} style={{background:active?gc+"33":"transparent",border:`1px solid ${active?gc:"#123258"}`,color:active?gc:"#4f82c4",borderRadius:5,padding:"4px 13px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>{g.name}</button>
+                        );
+                      })}
                       <button onClick={()=>setAttrMgrOpen(true)} title="능력치 항목 관리" style={{marginLeft:"auto",background:"transparent",border:"1px solid #123258",color:"#6f97c4",borderRadius:5,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>⚙ 능력치 관리</button>
                     </div>
                     <div style={cardStyle}>
-                      <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:9}}>{curGroup?.name||""}</div>
+                      <div style={{fontSize:10,color:curGrpColor,fontWeight:700,letterSpacing:2,marginBottom:9,borderLeft:`3px solid ${curGrpColor}`,paddingLeft:6}}>{curGroup?.name||""}</div>
                       {curAbs.length===0 && <div style={{fontSize:12,color:"#4a6ea0"}}>이 그룹에 능력치가 없습니다. ⚙ 능력치 관리에서 추가하세요.</div>}
                       {curAbs.map(ab=>(
-                        <Bar key={ab.key} ab={ab} value={editing?editD.attrs[ab.key]:display.attrs[ab.key]} editing={editing} onChange={v=>setEditD(d=>({...d,attrs:{...d.attrs,[ab.key]:v}}))} />
+                        <Bar key={ab.key} ab={ab} value={editing?editD.attrs[ab.key]:display.attrs[ab.key]} editing={editing} onChange={v=>setEditD(d=>({...d,attrs:{...d.attrs,[ab.key]:v}}))} barColor={curGrpColor} />
                       ))}
                     </div>
                   </div>
