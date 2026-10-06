@@ -1764,7 +1764,7 @@ export default function App(){
         .sidebar-toggle-btn{display:none;}
         @media (max-width:480px){
           .app-header{flex-wrap:wrap;row-gap:8px;padding:8px 12px !important;}
-          .app-title-main{font-size:13px !important;}
+          .app-title-main{font-size:20px !important;}
           .nav-row{order:2;}
           .card-mode-toggle{order:3;}
           .auth-controls{margin-left:0 !important;order:4;width:100%;justify-content:flex-end;flex-wrap:wrap;row-gap:6px;}
@@ -1795,8 +1795,8 @@ export default function App(){
 
 
         <div>
-          <div className="app-title-main" style={{fontFamily:"'Oswald',sans-serif",fontSize:15,fontWeight:700,letterSpacing:2,color:"#f5b133"}}>EZRA FOOTBALL MANAGER</div>
-          <div style={{fontSize:10,color:"#e6f1ff",fontWeight:700,letterSpacing:0.5}}>에스라 풋볼 매니저 · 선수 능력치 관리</div>
+          <div className="app-title-main" style={{fontFamily:"'Oswald',sans-serif",fontSize:26,fontWeight:700,letterSpacing:3,color:"#f5b133",lineHeight:1}}>EZRA FM</div>
+          <div style={{fontSize:9.5,color:"#a0b8d8",fontWeight:400,letterSpacing:0.5,marginTop:2}}>EZRA FOOTBALL MANAGER · 선수 능력치 관리</div>
         </div>
         <div className="nav-row" style={{display:"flex",gap:3,marginLeft:16,flexWrap:"wrap"}}>
           {NAV.map(n=>(
