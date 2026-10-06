@@ -753,11 +753,11 @@ function buildPlayerReportFullDoc(p, team, abilities, groups, radarAxes){
     const vals=axList.map(ax=>radarAxisScore(ax,p.attrs||{},abilities));
     const gpts=lvl=>axList.map((_,i)=>{const pp=pt(i,lvl);return `${pp.x.toFixed(1)},${pp.y.toFixed(1)}`;}).join(" ");
     radarSvg=`<svg width="${sz}" height="${sz}" xmlns="http://www.w3.org/2000/svg">`
-      +[25,50,75,99].map(lvl=>`<polygon fill="none" stroke="#ccc" stroke-width="0.6" points="${gpts(lvl)}"/>`).join("")
-      +axList.map((_,i)=>{const pp=pt(i,99);return `<line x1="${cx}" y1="${cy}" x2="${pp.x.toFixed(1)}" y2="${pp.y.toFixed(1)}" stroke="#ccc" stroke-width="0.6"/>`;}).join("")
-      +`<path d="${path(vals)}" fill="rgba(26,58,107,0.14)" stroke="#1a3a6b" stroke-width="2"/>`
-      +vals.map((val,i)=>{const pp=pt(i,val);const dc=val>=70?"#1a7a4a":val>=50?"#c97a00":"#aa2222";return `<circle cx="${pp.x.toFixed(1)}" cy="${pp.y.toFixed(1)}" r="3.5" fill="${dc}" stroke="white" stroke-width="1"/>`;}).join("")
-      +axList.map((ax,i)=>{const pp=pt(i,99);const lx=cx+(pp.x-cx)*1.28,ly=cy+(pp.y-cy)*1.28;return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#333" font-weight="700" font-family="'Malgun Gothic',sans-serif">${E(ax.label)}</text>`;}).join("")
+      +[25,50,75,99].map(lvl=>`<polygon fill="none" stroke="#ddd" stroke-width="0.6" points="${gpts(lvl)}"/>`).join("")
+      +axList.map((_,i)=>{const pp=pt(i,99);const ac=grpC[i%grpC.length];return `<line x1="${cx}" y1="${cy}" x2="${pp.x.toFixed(1)}" y2="${pp.y.toFixed(1)}" stroke="${ac}" stroke-width="0.9" opacity="0.5"/>`;}).join("")
+      +`<path d="${path(vals)}" fill="rgba(26,58,107,0.10)" stroke="#1a3a6b" stroke-width="1.5" stroke-dasharray="none"/>`
+      +vals.map((val,i)=>{const pp=pt(i,val);const dc=grpC[i%grpC.length];return `<circle cx="${pp.x.toFixed(1)}" cy="${pp.y.toFixed(1)}" r="4" fill="${dc}" stroke="white" stroke-width="1.2"/>`;}).join("")
+      +axList.map((ax,i)=>{const pp=pt(i,99);const lx=cx+(pp.x-cx)*1.28,ly=cy+(pp.y-cy)*1.28;const ac=grpC[i%grpC.length];return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="${ac}" font-weight="700" font-family="'Malgun Gothic',sans-serif">${E(ax.label)}</text>`;}).join("")
       +`</svg>`;
   }
 
