@@ -811,28 +811,113 @@ function buildPlayerReportFullDoc(p, team, abilities, groups, radarAxes){
 
   // Growth history
   let growthHtml="";
-  if((p.history||[]).length>=2){
-    const hist=(p.history||[]).slice(-6).reverse();
-    const trs=hist.map((h,i)=>{
+  if((p.history||[]).length>=1){
+    const hist=(p.history||[]).slice(-8); // 최대 8개, 시간순
+    const ovrs=hist.map(h=>ovrFrom(h.attrs||{},abilities));
+    const mn=Math.max(0,Math.min(...ovrs)-8), mx=Math.min(99,Math.max(...ovrs)+8);
+
+    // OVR 라인 차트 SVG
+    let lineSvg="";
+    if(hist.length>=2){
+      const W=580,H=90,pl=8,pr=8,pt2=8,pb=20;
+      const iW=W-pl-pr, iH=H-pt2-pb;
+      const xf=i=>pl+i*(iW/(hist.length-1));
+      const yf=v=>pt2+iH-(((v-mn)/(mx-mn||1))*iH);
+      const pts=ovrs.map((v,i)=>`${xf(i).toFixed(1)},${yf(v).toFixed(1)}`).join(" ");
+      const d=ovrs.map((v,i)=>`${i===0?"M":"L"}${xf(i).toFixed(1)},${yf(v).toFixed(1)}`).join(" ");
+      const area=d+` L${xf(hist.length-1).toFixed(1)},${(pt2+iH).toFixed(1)} L${pl},${(pt2+iH).toFixed(1)} Z`;
+      // 격자선
+      const gridLines=[mn,Math.round((mn+mx)/2),mx].map(gv=>{
+        const gy=yf(gv).toFixed(1);
+        return `<line x1="${pl}" y1="${gy}" x2="${W-pr}" y2="${gy}" stroke="#dde6f0" stroke-width="0.8" stroke-dasharray="3 3"/><text x="${pl-3}" y="${gy}" text-anchor="end" dominant-baseline="middle" font-size="7" fill="#aaa">${gv}</text>`;
+      }).join("");
+      const dots=ovrs.map((v,i)=>{
+        const cx=xf(i).toFixed(1),cy=yf(v).toFixed(1);
+        const vc=v>=70?"#1a7a4a":v>=50?"#c97a00":"#aa2222";
+        const label=hist[i].label?E(hist[i].label.slice(0,6)):"";
+        const dateShort=E((hist[i].date||"").replace(/\d{4}\./,"").trim());
+        return `<circle cx="${cx}" cy="${cy}" r="4" fill="${vc}" stroke="white" stroke-width="1.2"/>
+          <text x="${cx}" y="${(Number(cy)-8).toFixed(1)}" text-anchor="middle" font-size="8.5" font-weight="700" fill="${vc}">${v}</text>
+          <text x="${cx}" y="${(pt2+iH+12).toFixed(1)}" text-anchor="middle" font-size="7" fill="#888">${dateShort}</text>
+          ${label?`<text x="${cx}" y="${(pt2+iH+20).toFixed(1)}" text-anchor="middle" font-size="6.5" fill="#aaa">${label}</text>`:""}`;
+      }).join("");
+      lineSvg=`<svg width="100%" viewBox="0 0 ${W} ${H+10}" xmlns="http://www.w3.org/2000/svg" style="display:block;">
+        ${gridLines}
+        <path d="${area}" fill="rgba(26,58,107,0.08)"/>
+        <polyline points="${pts}" fill="none" stroke="#1a3a6b" stroke-width="2" stroke-linejoin="round"/>
+        ${dots}
+      </svg>`;
+    }
+
+    // 스냅샷 테이블 (시간 역순)
+    const histRev=[...hist].reverse();
+    const trs=histRev.map((h,i)=>{
       const ho=ovrFrom(h.attrs||{},abilities);
-      const prev=hist[i+1]?ovrFrom((hist[i+1].attrs||{}),abilities):null;
+      const prev=histRev[i+1]?ovrFrom((histRev[i+1].attrs||{}),abilities):null;
       const diff=prev!=null?ho-prev:null;
       const hc=ho>=70?"#1a7a4a":ho>=50?"#c97a00":"#aa2222";
       const dc=diff===null?"":diff>0?"#1a7a4a":diff<0?"#aa2222":"#888";
-      const da=diff===null?"":diff>0?`▲${diff}`:diff<0?`▼${Math.abs(diff)}`:"±0";
+      const da=diff===null?"—":diff>0?`▲${diff}`:diff<0?`▼${Math.abs(diff)}`:"±0";
       return `<tr style="border-bottom:1px solid #eee;">
-        <td style="padding:5px 8px;font-size:10px;color:#555;">${E(h.date||"")}</td>
-        <td style="padding:5px 8px;font-size:10px;color:#555;">${E(h.label||"")}</td>
-        <td style="padding:5px 8px;text-align:center;font-size:12px;font-weight:700;color:${hc};">${ho}</td>
-        <td style="padding:5px 8px;text-align:center;font-size:10px;font-weight:700;color:${dc};">${da}</td>
+        <td style="padding:4px 8px;font-size:9.5px;color:#555;">${E(h.date||"")}</td>
+        <td style="padding:4px 8px;font-size:9.5px;color:#555;">${E(h.label||"")}</td>
+        <td style="padding:4px 8px;text-align:center;font-size:12px;font-weight:700;color:${hc};">${ho}</td>
+        <td style="padding:4px 8px;text-align:center;font-size:10px;font-weight:700;color:${dc};">${da}</td>
       </tr>`;
     }).join("");
+
+    // 능력치별 변화 (첫→마지막 스냅샷)
+    let abilityChangeHtml="";
+    if(hist.length>=2){
+      const first=hist[0], last=hist[hist.length-1];
+      const rows=abilities.map(ab=>{
+        const v1=abScore(ab,first.attrs?.[ab.key]), v2=abScore(ab,last.attrs?.[ab.key]);
+        if(v1===null&&v2===null) return null;
+        const diff=(v1!=null&&v2!=null)?v2-v1:null;
+        if(diff===0) return null;
+        const dc=diff>0?"#1a7a4a":diff<0?"#aa2222":"#888";
+        const da=diff>0?`▲${diff}`:diff<0?`▼${Math.abs(diff)}`:"±0";
+        return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">
+          <span style="font-size:9px;color:#555;flex:1;overflow:hidden;white-space:nowrap;">${E(ab.label)}</span>
+          <span style="font-size:9px;color:#999;">${v1??"-"}</span>
+          <span style="font-size:8px;color:#bbb;">→</span>
+          <span style="font-size:10px;font-weight:700;color:${v2>=70?"#1a7a4a":v2>=50?"#c97a00":"#aa2222"};">${v2??"-"}</span>
+          <span style="font-size:9px;font-weight:700;color:${dc};width:28px;text-align:right;">${da}</span>
+        </div>`;
+      }).filter(Boolean);
+      if(rows.length){
+        const half=Math.ceil(rows.length/2);
+        abilityChangeHtml=`<div style="margin-top:10px;">
+          <div style="font-size:9px;font-weight:700;color:#1a3a6b;letter-spacing:1px;margin-bottom:6px;">능력치별 변화 (${E(first.date||"")} → ${E(last.date||"")})</div>
+          <div style="display:flex;gap:12px;">
+            <div style="flex:1;">${rows.slice(0,half).join("")}</div>
+            <div style="width:1px;background:#dde6f0;flex-shrink:0;"></div>
+            <div style="flex:1;">${rows.slice(half).join("")}</div>
+          </div>
+        </div>`;
+      }
+    }
+
     growthHtml=`<div style="margin-top:12px;border:1px solid #dde6f0;border-radius:6px;overflow:hidden;">
-      <div style="background:#1a3a6b;color:#fff;padding:7px 14px;font-size:10px;font-weight:700;letter-spacing:1px;">📈 성장 이력 (최근 ${hist.length}회)</div>
-      <table style="width:100%;border-collapse:collapse;">
-        <thead><tr style="background:#f0f4fa;"><th style="padding:5px 8px;font-size:9.5px;color:#666;text-align:left;">날짜</th><th style="padding:5px 8px;font-size:9.5px;color:#666;text-align:left;">라벨</th><th style="padding:5px 8px;font-size:9.5px;color:#666;text-align:center;">OVR</th><th style="padding:5px 8px;font-size:9.5px;color:#666;text-align:center;">변화</th></tr></thead>
-        <tbody>${trs}</tbody>
-      </table></div>`;
+      <div style="background:#1a3a6b;color:#fff;padding:7px 14px;font-size:10px;font-weight:700;letter-spacing:1px;">📈 성장 추적 (스냅샷 ${hist.length}회)</div>
+      <div style="padding:10px 14px;background:#fafcff;">
+        ${lineSvg}
+        <div style="display:flex;gap:12px;margin-top:10px;">
+          <div style="flex:1.4;">
+            <table style="width:100%;border-collapse:collapse;">
+              <thead><tr style="background:#f0f4fa;">
+                <th style="padding:4px 8px;font-size:9px;color:#666;text-align:left;">날짜</th>
+                <th style="padding:4px 8px;font-size:9px;color:#666;text-align:left;">라벨</th>
+                <th style="padding:4px 8px;font-size:9px;color:#666;text-align:center;">OVR</th>
+                <th style="padding:4px 8px;font-size:9px;color:#666;text-align:center;">변화</th>
+              </tr></thead>
+              <tbody>${trs}</tbody>
+            </table>
+          </div>
+          ${hist.length>=2?`<div style="width:1px;background:#dde6f0;flex-shrink:0;"></div><div style="flex:1;">${abilityChangeHtml}</div>`:""}
+        </div>
+      </div>
+    </div>`;
   }
 
   const body=`
