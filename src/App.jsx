@@ -729,7 +729,7 @@ function buildPlayerReportFullDoc(p, team, abilities, groups, radarAxes){
   const teamName = team ? `${team.badge||""} ${team.name||""}`.trim() : "";
   const ovrC = v>=70?"#1a7a4a":v>=50?"#c97a00":"#aa2222";
   const posC = {GK:"#c97a00",CB:"#1a4a8a",LB:"#1a4a8a",RB:"#1a4a8a",CDM:"#1a7a4a",CM:"#1a7a4a",CAM:"#1a7a4a",LW:"#aa2222",RW:"#aa2222",ST:"#aa2222"};
-  const grpC = ["#1a4a8a","#1a7a4a","#c97a00","#7a1a8a","#aa2222"];
+  const grpC = ["#1565c0","#c0392b","#8e44ad","#00897b","#e65100"];
   const E = escapeHtml;
 
   // OVR ring
