@@ -704,6 +704,191 @@ function openPrintWindow(title, bodyHtml){
   }
 }
 
+function openPrintWindowFullDoc(fullHtml){
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("aria-hidden","true");
+  Object.assign(iframe.style,{position:"fixed",right:"0",bottom:"0",width:"0",height:"0",border:"0"});
+  document.body.appendChild(iframe);
+  const doc = iframe.contentWindow && iframe.contentWindow.document;
+  if(!doc){ alert("인쇄 준비에 실패했습니다."); iframe.remove(); return; }
+  doc.open(); doc.write(fullHtml); doc.close();
+  const cleanup = () => setTimeout(()=>{ try{iframe.remove();}catch{} },1200);
+  const go = () => { try{ iframe.contentWindow.focus(); iframe.contentWindow.print(); }catch(e){ alert("인쇄 중 오류가 발생했습니다."); } finally{ cleanup(); } };
+  const imgs = Array.from(doc.images||[]);
+  if(imgs.length){ let pend=imgs.length; const tick=()=>{ if(--pend<=0) go(); }; imgs.forEach(im=>{ if(im.complete) tick(); else{ im.onload=tick; im.onerror=tick; } }); setTimeout(go,2500); }
+  else { setTimeout(go,200); }
+}
+
+function buildPlayerReportFullDoc(p, team, abilities, groups, radarAxes){
+  const v = ovrFrom(p.attrs||{}, abilities);
+  const fits = calcPositionFits(p.attrs||{}, abilities);
+  const sorted = Object.entries(fits).sort((a,b)=>b[1]-a[1]);
+  const topPos = sorted[0]?.[0]||"-";
+  const maxFit = sorted[0]?.[1]||1;
+  const date = new Date().toLocaleDateString("ko-KR");
+  const teamName = team ? `${team.badge||""} ${team.name||""}`.trim() : "";
+  const ovrC = v>=70?"#1a7a4a":v>=50?"#c97a00":"#aa2222";
+  const posC = {GK:"#c97a00",CB:"#1a4a8a",LB:"#1a4a8a",RB:"#1a4a8a",CDM:"#1a7a4a",CM:"#1a7a4a",CAM:"#1a7a4a",LW:"#aa2222",RW:"#aa2222",ST:"#aa2222"};
+  const grpC = ["#1a4a8a","#1a7a4a","#c97a00","#7a1a8a","#aa2222"];
+  const E = escapeHtml;
+
+  // OVR ring
+  const rr=28, rc=2*Math.PI*rr;
+  const ovrRing=`<svg width="70" height="70" xmlns="http://www.w3.org/2000/svg"><circle cx="35" cy="35" r="${rr}" fill="none" stroke="#e0e0e0" stroke-width="5"/><circle cx="35" cy="35" r="${rr}" fill="none" stroke="${ovrC}" stroke-width="5" stroke-dasharray="${rc.toFixed(1)}" stroke-dashoffset="${(rc*(1-v/100)).toFixed(1)}" transform="rotate(-90 35 35)"/><text x="35" y="35" text-anchor="middle" dominant-baseline="central" font-size="17" font-weight="900" fill="${ovrC}" font-family="Arial Black,sans-serif">${v}</text></svg>`;
+
+  // Photo
+  const photoEl = p.photo
+    ? `<img src="${p.photo}" style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid #1a3a6b;"/>`
+    : `<div style="width:88px;height:88px;border-radius:50%;background:#1a3a6b;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;font-family:Arial Black,sans-serif;">${v}</div>`;
+
+  // Radar SVG
+  let radarSvg="";
+  const axList=(radarAxes&&radarAxes.length)?radarAxes:DEFAULT_RADAR;
+  const n=axList.length;
+  if(n>=3){
+    const sz=180,cx=90,cy=90,r=62;
+    const ang=i=>(Math.PI*2*i/n)-Math.PI/2;
+    const pt=(i,val)=>({x:cx+r*(val/99)*Math.cos(ang(i)),y:cy+r*(val/99)*Math.sin(ang(i))});
+    const path=vs=>vs.map((val,i)=>{const pp=pt(i,val);return `${i===0?"M":"L"}${pp.x.toFixed(1)},${pp.y.toFixed(1)}`;}).join(" ")+"Z";
+    const vals=axList.map(ax=>radarAxisScore(ax,p.attrs||{},abilities));
+    const gpts=lvl=>axList.map((_,i)=>{const pp=pt(i,lvl);return `${pp.x.toFixed(1)},${pp.y.toFixed(1)}`;}).join(" ");
+    radarSvg=`<svg width="${sz}" height="${sz}" xmlns="http://www.w3.org/2000/svg">`
+      +[25,50,75,99].map(lvl=>`<polygon fill="none" stroke="#ccc" stroke-width="0.6" points="${gpts(lvl)}"/>`).join("")
+      +axList.map((_,i)=>{const pp=pt(i,99);return `<line x1="${cx}" y1="${cy}" x2="${pp.x.toFixed(1)}" y2="${pp.y.toFixed(1)}" stroke="#ccc" stroke-width="0.6"/>`;}).join("")
+      +`<path d="${path(vals)}" fill="rgba(26,58,107,0.14)" stroke="#1a3a6b" stroke-width="2"/>`
+      +vals.map((val,i)=>{const pp=pt(i,val);const dc=val>=70?"#1a7a4a":val>=50?"#c97a00":"#aa2222";return `<circle cx="${pp.x.toFixed(1)}" cy="${pp.y.toFixed(1)}" r="3.5" fill="${dc}" stroke="white" stroke-width="1"/>`;}).join("")
+      +axList.map((ax,i)=>{const pp=pt(i,99);const lx=cx+(pp.x-cx)*1.28,ly=cy+(pp.y-cy)*1.28;return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#333" font-weight="700" font-family="'Malgun Gothic',sans-serif">${E(ax.label)}</text>`;}).join("")
+      +`</svg>`;
+  }
+
+  // Ability bars
+  const abilityHtml = groups.map((g,gi)=>{
+    const abs = abilities.filter(a=>a.group===g.id);
+    if(!abs.length) return "";
+    const col=grpC[gi%grpC.length];
+    const rows=abs.map(ab=>{
+      const raw=p.attrs?.[ab.key]; const sc=abScore(ab,raw); const val=fmtVal(ab,raw);
+      const bc=sc!=null?(sc>=70?"#1a7a4a":sc>=50?"#c97a00":"#aa2222"):"#ddd";
+      return `<div style="margin-bottom:4px;display:flex;align-items:center;gap:5px;">
+        <span style="font-size:9.5px;color:#444;width:62px;flex-shrink:0;overflow:hidden;white-space:nowrap;">${E(ab.label)}</span>
+        <div style="flex:1;height:7px;background:#ebebeb;border-radius:3px;overflow:hidden;"><div style="width:${sc??0}%;height:100%;background:${bc};border-radius:3px;"></div></div>
+        <span style="font-size:10.5px;font-weight:700;color:#111;width:26px;text-align:right;">${E(val)}</span>
+        <span style="font-size:9px;color:#999;width:18px;text-align:right;">${sc!=null?sc:""}</span>
+      </div>`;
+    }).join("");
+    return `<div style="margin-bottom:9px;"><div style="font-size:9.5px;font-weight:700;color:${col};letter-spacing:0.5px;border-left:3px solid ${col};padding-left:5px;margin-bottom:5px;">${E(g.name)}</div>${rows}</div>`;
+  }).join("");
+
+  // Position fit chart + top3 detail
+  const fitRows = sorted.map(([pos,score],i)=>{
+    const col=i<3?(posC[pos]||"#1a4a8a"):"#aaa";
+    const pct=(score/maxFit*100).toFixed(1);
+    return `<div style="margin-bottom:5px;display:flex;align-items:center;gap:7px;">
+      <span style="font-size:10.5px;font-weight:700;color:${col};width:36px;font-family:Arial Black,sans-serif;">${pos}</span>
+      <div style="flex:1;height:9px;background:#ebebeb;border-radius:4px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${col};border-radius:4px;"></div></div>
+      <span style="font-size:11px;font-weight:700;color:${col};width:26px;text-align:right;">${score}</span>
+      <span style="width:14px;font-size:11px;color:#c97a00;">${i===0?"★":""}</span>
+    </div>`;
+  }).join("");
+
+  const top3Detail = sorted.slice(0,3).map(([pos])=>{
+    const col=posC[pos]||"#1a4a8a";
+    // Use posWeights from abilities if available, else fall back to POSITION_PROFILES
+    const weights = {};
+    abilities.forEach(ab=>{ if(ab.posWeights?.[pos]) weights[ab.key]=ab.posWeights[pos]; });
+    const wEntries = Object.entries(Object.keys(weights).length ? weights : (POSITION_PROFILES[pos]||{})).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const chips=wEntries.map(([key])=>{
+      const ab=abilities.find(a=>a.key===key); if(!ab) return "";
+      const sc=abScore(ab,p.attrs?.[key]);
+      const cc=sc!=null?(sc>=70?"#1a7a4a":sc>=50?"#c97a00":"#aa2222"):"#888";
+      return `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#f4f7fc;border:1px solid ${cc}55;border-radius:4px;margin:2px 2px 2px 0;">
+        <span style="font-size:8.5px;color:#555;">${E(ab.label)}</span>
+        <span style="font-size:10.5px;font-weight:700;color:${cc};">${sc??"-"}</span>
+      </span>`;
+    }).join("");
+    return `<div style="margin-bottom:8px;"><div style="font-size:10px;font-weight:700;color:${col};border-left:3px solid ${col};padding-left:5px;margin-bottom:4px;">${pos} <span style="font-size:9px;font-weight:400;color:#888;">핵심 능력치</span></div><div>${chips}</div></div>`;
+  }).join("");
+
+  // Growth history
+  let growthHtml="";
+  if((p.history||[]).length>=2){
+    const hist=(p.history||[]).slice(-6).reverse();
+    const trs=hist.map((h,i)=>{
+      const ho=ovrFrom(h.attrs||{},abilities);
+      const prev=hist[i+1]?ovrFrom((hist[i+1].attrs||{}),abilities):null;
+      const diff=prev!=null?ho-prev:null;
+      const hc=ho>=70?"#1a7a4a":ho>=50?"#c97a00":"#aa2222";
+      const dc=diff===null?"":diff>0?"#1a7a4a":diff<0?"#aa2222":"#888";
+      const da=diff===null?"":diff>0?`▲${diff}`:diff<0?`▼${Math.abs(diff)}`:"±0";
+      return `<tr style="border-bottom:1px solid #eee;">
+        <td style="padding:5px 8px;font-size:10px;color:#555;">${E(h.date||"")}</td>
+        <td style="padding:5px 8px;font-size:10px;color:#555;">${E(h.label||"")}</td>
+        <td style="padding:5px 8px;text-align:center;font-size:12px;font-weight:700;color:${hc};">${ho}</td>
+        <td style="padding:5px 8px;text-align:center;font-size:10px;font-weight:700;color:${dc};">${da}</td>
+      </tr>`;
+    }).join("");
+    growthHtml=`<div style="margin-top:12px;border:1px solid #dde6f0;border-radius:6px;overflow:hidden;">
+      <div style="background:#1a3a6b;color:#fff;padding:7px 14px;font-size:10px;font-weight:700;letter-spacing:1px;">📈 성장 이력 (최근 ${hist.length}회)</div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:#f0f4fa;"><th style="padding:5px 8px;font-size:9.5px;color:#666;text-align:left;">날짜</th><th style="padding:5px 8px;font-size:9.5px;color:#666;text-align:left;">라벨</th><th style="padding:5px 8px;font-size:9.5px;color:#666;text-align:center;">OVR</th><th style="padding:5px 8px;font-size:9.5px;color:#666;text-align:center;">변화</th></tr></thead>
+        <tbody>${trs}</tbody>
+      </table></div>`;
+  }
+
+  const body=`
+  <div style="background:#1a3a6b;color:#fff;padding:13px 18px;border-radius:7px 7px 0 0;display:flex;align-items:center;">
+    <div><div style="font-size:8.5px;letter-spacing:2px;opacity:0.65;text-transform:uppercase;margin-bottom:2px;">EZRA FOOTBALL CLUB · Player Report</div>
+    <div style="font-size:20px;font-weight:900;letter-spacing:0.5px;">${E(p.name)}</div></div>
+    <div style="margin-left:auto;text-align:right;opacity:0.7;font-size:9.5px;">${E(teamName)}<br/>${date}</div>
+  </div>
+  <div style="background:#e8f0fa;border:1px solid #c4d4ea;border-top:none;border-radius:0 0 7px 7px;padding:6px 18px;display:flex;align-items:center;gap:14px;font-size:10.5px;color:#333;margin-bottom:11px;flex-wrap:wrap;">
+    <span><b>포지션</b> ${E(p.pos||"-")}</span>
+    <span><b>나이</b> ${p.age||"-"}</span>
+    ${p.number?`<span><b>번호</b> ${E(String(p.number))}</span>`:""}
+    ${p.club?`<span><b>구단</b> ${E(p.club)}</span>`:""}
+    <span style="margin-left:auto;font-size:11.5px;"><b>최적 포지션</b> <b style="color:${posC[topPos]||"#1a3a6b"};font-size:14px;">${topPos}</b></span>
+    ${ovrRing}
+  </div>
+  <div style="display:flex;gap:12px;margin-bottom:11px;">
+    <div style="width:195px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;">
+      <div style="border:1px solid #dde6f0;border-radius:7px;padding:12px;background:#fafcff;display:flex;flex-direction:column;align-items:center;gap:6px;">
+        ${photoEl}
+        <div style="font-size:10.5px;font-weight:700;color:#333;">${E(p.name)}</div>
+      </div>
+      <div style="border:1px solid #dde6f0;border-radius:7px;padding:8px;background:#fafcff;display:flex;justify-content:center;">${radarSvg}</div>
+    </div>
+    <div style="flex:1;border:1px solid #dde6f0;border-radius:7px;padding:11px 13px;background:#fafcff;">
+      <div style="font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#1a3a6b;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #dde6f0;">능력치 분석</div>
+      ${abilityHtml}
+    </div>
+  </div>
+  <div style="border:1px solid #dde6f0;border-radius:7px;padding:11px 13px;background:#fafcff;margin-bottom:11px;">
+    <div style="font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#1a3a6b;margin-bottom:9px;padding-bottom:5px;border-bottom:1px solid #dde6f0;">포지션 적합도</div>
+    <div style="display:flex;gap:14px;">
+      <div style="flex:1;">${fitRows}</div>
+      <div style="width:1px;background:#dde6f0;flex-shrink:0;"></div>
+      <div style="flex:1.1;">${top3Detail}</div>
+    </div>
+  </div>
+  ${growthHtml}
+  <div style="margin-top:12px;padding-top:7px;border-top:1px solid #dde6f0;font-size:8.5px;color:#bbb;text-align:center;letter-spacing:1px;">EZRA FOOTBALL CLUB · ${E(p.name)} · ${date}</div>`;
+
+  return `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"/>
+<title>${E(p.name)} 선수 리포트</title>
+<style>
+  @page { margin:11mm; size:A4 portrait; }
+  *{ box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{ margin:0; background:#fff; font-family:'Malgun Gothic','Apple SD Gothic Neo','Nanum Gothic',sans-serif; }
+  .sheet{ max-width:740px; margin:0 auto; padding:14px 18px; }
+  .toolbar{ text-align:center; margin:12px 0; }
+  .toolbar button{ font-size:14px; padding:10px 26px; cursor:pointer; border-radius:6px; border:none; background:#1a3a6b; color:#fff; font-weight:700; letter-spacing:0.5px; }
+  @media print{ .toolbar{ display:none; } }
+</style></head><body>
+<div class="toolbar"><button onclick="window.print()">🖨 인쇄하기</button></div>
+<div class="sheet">${body}</div>
+</body></html>`;
+}
+
 function pitchSvgForPrint(formationName, lineup, players, slotPositions, slotPosOverrides, abilities){
   const slots = FORMATIONS[formationName] || [];
   const {x0,x1,y0,y1} = PITCH_BOUNDS;
@@ -1543,7 +1728,7 @@ export default function App(){
     if(!display) return;
     const team = display.tid ? teamMap[display.tid] : null;
     const printRadar = groups.map(g => ({ id:g.id, label:g.name, keys:(abilitiesByGroup[g.id]||[]).map(a=>a.key) }));
-    openPrintWindow(`${display.name} 프로필`, buildPlayerPrintBody(display, team, abilities, groups, printRadar));
+    openPrintWindowFullDoc(buildPlayerReportFullDoc(display, team, abilities, groups, printRadar));
   }
 
   const NAV=["선수","팀 관리","베스트 11","경기 일정"];
