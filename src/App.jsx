@@ -2169,7 +2169,7 @@ export default function App(){
                     </div>
                     {/* 우: FM식 능력치 그리드 (그룹별 열, 항목마다 숫자값) */}
                     <div style={{flex:1,minWidth:240,display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-start"}}>
-                      {groups.map(g=>{
+                      {groups.map((g,gi)=>{
                         const atrs=abilitiesByGroup[g.id]||[];
                         if(!atrs.length) return null;
                         const avg=groupScore(g.id, display.attrs, abilities);
