@@ -741,25 +741,26 @@ function buildPlayerReportFullDoc(p, team, abilities, groups, radarAxes){
     ? `<img src="${p.photo}" style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid #1a3a6b;"/>`
     : `<div style="width:88px;height:88px;border-radius:50%;background:#1a3a6b;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;font-family:Arial Black,sans-serif;">${v}</div>`;
 
-  // Radar SVG
+  // Radar SVG — GroupRadar style (one colored polygon per group, superimposed)
   let radarSvg="";
-  const axList=(radarAxes&&radarAxes.length)?radarAxes:DEFAULT_RADAR;
-  const n=axList.length;
-  if(n>=3){
-    const sz=180,cx=90,cy=90,r=62;
-    const ang=i=>(Math.PI*2*i/n)-Math.PI/2;
-    const pt=(i,val)=>({x:cx+r*(val/99)*Math.cos(ang(i)),y:cy+r*(val/99)*Math.sin(ang(i))});
-    const path=vs=>vs.map((val,i)=>{const pp=pt(i,val);return `${i===0?"M":"L"}${pp.x.toFixed(1)},${pp.y.toFixed(1)}`;}).join(" ")+"Z";
-    const vals=axList.map(ax=>radarAxisScore(ax,p.attrs||{},abilities));
-    const gpts=lvl=>axList.map((_,i)=>{const pp=pt(i,lvl);return `${pp.x.toFixed(1)},${pp.y.toFixed(1)}`;}).join(" ");
-    radarSvg=`<svg width="${sz}" height="${sz}" xmlns="http://www.w3.org/2000/svg">`
-      +[25,50,75,99].map(lvl=>`<polygon fill="none" stroke="#e0e0e0" stroke-width="0.5" points="${gpts(lvl)}"/>`).join("")
-      +axList.map((_,i)=>{const pp=pt(i,99);const ac=grpC[i%grpC.length];return `<line x1="${cx}" y1="${cy}" x2="${pp.x.toFixed(1)}" y2="${pp.y.toFixed(1)}" stroke="${ac}" stroke-width="1.8"/>`;}).join("")
-      +vals.map((val,i)=>{const pp=pt(i,val);const dc=grpC[i%grpC.length];const mid={x:(cx+pp.x)/2,y:(cy+pp.y)/2};const nextPp=pt((i+1)%n,vals[(i+1)%n]);const midNext={x:(cx+nextPp.x)/2,y:(cy+nextPp.y)/2};return `<polygon points="${cx},${cy} ${mid.x.toFixed(1)},${mid.y.toFixed(1)} ${pp.x.toFixed(1)},${pp.y.toFixed(1)} ${midNext.x.toFixed(1)},${midNext.y.toFixed(1)}" fill="${dc}" fill-opacity="0.18" stroke="none"/>`;}).join("")
-      +`<path d="${path(vals)}" fill="rgba(26,58,107,0.08)" stroke="#1a3a6b" stroke-width="1.5"/>`
-      +vals.map((val,i)=>{const pp=pt(i,val);const dc=grpC[i%grpC.length];return `<circle cx="${pp.x.toFixed(1)}" cy="${pp.y.toFixed(1)}" r="7" fill="${dc}" stroke="white" stroke-width="1.5"/>`;}).join("")
-      +axList.map((ax,i)=>{const pp=pt(i,99);const lx=cx+(pp.x-cx)*1.30,ly=cy+(pp.y-cy)*1.30;const ac=grpC[i%grpC.length];return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="10" fill="${ac}" font-weight="700" font-family="'Malgun Gothic',sans-serif">${E(ax.label)}</text>`;}).join("")
-      +`</svg>`;
+  {
+    const sz=200, rcx=100, rcy=100, rr=68;
+    const rings=[25,50,75,99].map(lvl=>`<circle cx="${rcx}" cy="${rcy}" r="${(rr*lvl/99).toFixed(1)}" fill="none" stroke="#e8e8e8" stroke-width="0.6"/>`).join("");
+    const activeGroups=groups.filter(g=>abilities.some(a=>a.group===g.id));
+    const polys=activeGroups.map((g,gi)=>{
+      const col=grpC[gi%grpC.length];
+      const gAbs=abilities.filter(a=>a.group===g.id);
+      const m=gAbs.length; if(m<2) return "";
+      const pts=gAbs.map((ab,i)=>{const a=(Math.PI*2*i/m)-Math.PI/2;const v=abScore(ab,p.attrs?.[ab.key])??0;return {x:rcx+rr*(v/99)*Math.cos(a),y:rcy+rr*(v/99)*Math.sin(a)};});
+      const d=pts.map((pt,i)=>`${i===0?"M":"L"}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join(" ")+"Z";
+      const dots=pts.map(pt=>`<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="3.5" fill="${col}" stroke="white" stroke-width="1"/>`).join("");
+      return `<path d="${d}" fill="${col}" fill-opacity="0.15" stroke="${col}" stroke-width="2" stroke-linejoin="round"/>${dots}`;
+    }).join("");
+    const legendY=sz-6;
+    const legend=activeGroups.map((g,gi)=>{const col=grpC[gi%grpC.length];const lx=8+gi*62;return `<rect x="${lx}" y="${legendY-9}" width="9" height="9" fill="${col}" rx="2"/><text x="${lx+12}" y="${legendY}" font-size="9" fill="${col}" font-weight="700" font-family="'Malgun Gothic',sans-serif">${E(g.name)}</text>`;}).join("");
+    if(activeGroups.length>=2){
+      radarSvg=`<svg width="${sz}" height="${sz}" xmlns="http://www.w3.org/2000/svg">${rings}${polys}${legend}</svg>`;
+    }
   }
 
   // Ability bars
@@ -1162,6 +1163,51 @@ const MENTAL_SURVEY = [
   {label:"경기 지능·판단력",attrKey:"decisions",questions:["경기 상황을 빠르게 읽고 다음 플레이를 예측한다","패스할지 드리블할지 순간적으로 잘 판단한다","상대의 약점을 파악해 공략하려 한다","경기 흐름에 따라 내 역할을 스스로 조절한다"]},
 ];
 
+function QuickInputModal({ab, color, initVal, onSave, onClose}){
+  const [tmpVal, setTmpVal] = useState(initVal!=null&&initVal!==""?String(initVal):"");
+  const adjust = d => {
+    const cur = tmpVal===""?(ab.min??0):Number(tmpVal);
+    setTmpVal(String(Math.min(ab.max??100, Math.max(ab.min??0, cur+d))));
+  };
+  const commit = () => {
+    if(tmpVal==="") { onSave(null); return; }
+    const n = Number(tmpVal);
+    const v = ab.unit ? n : Math.min(ab.max??100, Math.max(ab.min??0, Math.round(n)));
+    onSave(v);
+  };
+  const presets = ab.unit ? [] : [40,50,60,70,75,80,85,90,95,99];
+  return (
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#0a1c34",border:`2px solid ${color}`,borderRadius:14,padding:"22px 24px",minWidth:290,maxWidth:350,boxShadow:"0 10px 40px rgba(0,0,0,0.7)"}}>
+        <div style={{fontSize:10,color:"#4a6ea0",marginBottom:4,letterSpacing:1,textTransform:"uppercase"}}>능력치 입력</div>
+        <div style={{fontSize:17,fontWeight:700,color:color,marginBottom:18,fontFamily:"'Barlow Condensed',sans-serif"}}>
+          {ab.label}{ab.unit?<span style={{fontSize:11,color:"#4a6ea0",fontWeight:400}}> ({ab.unit})</span>:null}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+          <button onPointerDown={()=>adjust(-1)} style={{width:50,height:50,fontSize:26,fontWeight:700,background:"#0c1f38",border:`1px solid ${color}66`,color:color,borderRadius:10,cursor:"pointer",flexShrink:0,touchAction:"manipulation"}}>−</button>
+          <input type="number" value={tmpVal} onChange={e=>setTmpVal(e.target.value)}
+            onKeyDown={e=>{if(e.key==="Enter")commit();if(e.key==="Escape")onClose();}}
+            autoFocus
+            style={{flex:1,fontSize:32,fontWeight:900,color:color,background:"#04101f",border:`2px solid ${color}`,borderRadius:10,textAlign:"center",padding:"8px 4px",outline:"none",fontFamily:"'Barlow Condensed',sans-serif"}} />
+          <button onPointerDown={()=>adjust(1)} style={{width:50,height:50,fontSize:26,fontWeight:700,background:"#0c1f38",border:`1px solid ${color}66`,color:color,borderRadius:10,cursor:"pointer",flexShrink:0,touchAction:"manipulation"}}>+</button>
+        </div>
+        {presets.length>0 && (
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:18}}>
+            {presets.map(v=>(
+              <button key={v} onPointerDown={()=>setTmpVal(String(v))}
+                style={{padding:"7px 11px",background:String(v)===tmpVal?color:"#0c1f38",border:`1px solid ${color}55`,color:String(v)===tmpVal?"#04101f":color,borderRadius:7,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",touchAction:"manipulation"}}>{v}</button>
+            ))}
+          </div>
+        )}
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={onClose} style={{flex:1,padding:"13px",background:"#0c1f38",border:"1px solid #1d4a86",color:"#8899aa",borderRadius:9,fontSize:14,fontWeight:700,cursor:"pointer",touchAction:"manipulation"}}>취소</button>
+          <button onClick={commit} style={{flex:2,padding:"13px",background:color,border:"none",color:"#04101f",borderRadius:9,fontSize:15,fontWeight:900,cursor:"pointer",touchAction:"manipulation"}}>저장</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MentalSurveyModal({player,abilities,onSave,onClose}){
   const SCALE=[1,2,3,4,5];
   const SCALE_LABELS={1:"전혀 아니다",2:"아니다",3:"보통",4:"그렇다",5:"매우 그렇다"};
@@ -1259,6 +1305,7 @@ export default function App(){
   const [aCat, setACat] = useState("g_tech"); // 능력치 탭에서 선택된 그룹 id
   const [editing, setEditing] = useState(false);
   const [editD, setEditD] = useState(null);
+  const [quickInput, setQuickInput] = useState(null); // {ab, color} for touch quick-edit
   const [adding, setAdding] = useState(false);
   const [newP, setNewP] = useState(null);
   const [fTeam, setFTeam] = useState("all");
@@ -2226,9 +2273,25 @@ export default function App(){
                     <div style={cardStyle}>
                       <div style={{fontSize:10,color:curGrpColor,fontWeight:700,letterSpacing:2,marginBottom:9,borderLeft:`3px solid ${curGrpColor}`,paddingLeft:6}}>{curGroup?.name||""}</div>
                       {curAbs.length===0 && <div style={{fontSize:12,color:"#4a6ea0"}}>이 그룹에 능력치가 없습니다. ⚙ 능력치 관리에서 추가하세요.</div>}
-                      {curAbs.map(ab=>(
-                        <Bar key={ab.key} ab={ab} value={editing?editD.attrs[ab.key]:display.attrs[ab.key]} editing={editing} onChange={v=>setEditD(d=>({...d,attrs:{...d.attrs,[ab.key]:v}}))} barColor={curGrpColor} />
-                      ))}
+                      {curAbs.map(ab=>{
+                        const val = editing ? editD.attrs[ab.key] : display.attrs[ab.key];
+                        const sc = abScore(ab, val);
+                        return editing ? (
+                          <Bar key={ab.key} ab={ab} value={val} editing={true} onChange={v=>setEditD(d=>({...d,attrs:{...d.attrs,[ab.key]:v}}))} barColor={curGrpColor} />
+                        ) : (
+                          <div key={ab.key} onClick={()=>setQuickInput({ab, color:curGrpColor})}
+                            style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,cursor:"pointer",borderRadius:6,padding:"3px 4px",transition:"background 0.15s"}}
+                            onMouseEnter={e=>e.currentTarget.style.background="#0c1f38"}
+                            onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                            <span style={{width:92,fontSize:11,color:"#8899aa",fontFamily:"'Barlow Condensed',sans-serif",flexShrink:0,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{ab.label}</span>
+                            <div style={{flex:1,height:8,background:"#0c1f38",borderRadius:4,overflow:"hidden"}}>
+                              <div style={{width:`${sc??0}%`,height:"100%",background:curGrpColor,borderRadius:4}} />
+                            </div>
+                            <span style={{minWidth:36,textAlign:"right",fontSize:13,fontWeight:700,color:curGrpColor,fontFamily:"'Barlow Condensed',sans-serif"}}>{val!=null&&val!==""?val:"-"}</span>
+                            <span style={{fontSize:10,color:"#2f5c99",flexShrink:0}}>✏</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                   );
@@ -2912,6 +2975,16 @@ export default function App(){
       {/* MENTAL SURVEY MODAL */}
       {mentalSurveyPlayer && (
         <MentalSurveyModal player={mentalSurveyPlayer} abilities={abilities} onSave={handleMentalSurveySave} onClose={()=>setMentalSurveyPlayer(null)} />
+      )}
+
+      {quickInput && sel && (
+        <QuickInputModal ab={quickInput.ab} color={quickInput.color} initVal={sel.attrs?.[quickInput.ab.key]}
+          onSave={v=>{
+            setPlayers(ps=>ps.map(p=>p.id===sel.id?{...p,attrs:{...p.attrs,[quickInput.ab.key]:v}}:p));
+            setSel(s=>s?{...s,attrs:{...s.attrs,[quickInput.ab.key]:v}}:s);
+            setQuickInput(null);
+          }}
+          onClose={()=>setQuickInput(null)} />
       )}
     </div>
   );
