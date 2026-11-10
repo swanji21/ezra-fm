@@ -1342,6 +1342,7 @@ export default function App(){
   const [attrMgrOpen, setAttrMgrOpen] = useState(false); // 능력치 관리 모달
   const [trainCatalog, setTrainCatalog] = useState(DEFAULT_TRAINING_CATALOG); // 훈련 카탈로그
   const [trainCatalogOpen, setTrainCatalogOpen] = useState(false); // 훈련 카탈로그 편집 모달
+  const [recFormOpen, setRecFormOpen] = useState(false); // 추천 포메이션 모달
   const [radarEditOpen, setRadarEditOpen] = useState(false); // 선수별 레이더 편집 모달
   const [mentalSurveyPlayer, setMentalSurveyPlayer] = useState(null); // 멘탈 설문 대상 선수
   const [radarGroup, setRadarGroup] = useState(null); // 그룹 레이더 드릴다운 대상(그룹 id) / null=오버뷰
@@ -2632,6 +2633,7 @@ export default function App(){
               <select value={formation} onChange={e=>{const f=e.target.value;setFormation(f);setLineup(Array(FORMATIONS[f].length).fill(null));setSelSlot(null);setSlotPositions({});setSlotPosOverrides({});}} style={{...INPUT,width:"auto",fontSize:12,padding:"5px 10px",flex:1,minWidth:90}}>
                 {Object.keys(FORMATIONS).map(f=><option key={f}>{f}</option>)}
               </select>
+              <button onClick={()=>setRecFormOpen(true)} style={{background:"linear-gradient(135deg,#1e6fbf,#8e44ad)",border:"none",color:"#fff",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>🎯 추천</button>
               <button onClick={clearLineup} style={{background:"transparent",border:"1px solid #1d4a86",color:"#6f97c4",borderRadius:5,padding:"5px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>초기화</button>
             </div>
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -3021,6 +3023,109 @@ export default function App(){
           </div>
         </div>
       )}
+
+      {/* 추천 포메이션 모달 */}
+      {recFormOpen && (()=>{
+        // 그리디 배정 알고리즘: 포지션별 최적 선수를 순서대로 배정 (한 선수는 한 자리)
+        function calcFormScore(formKey, candPlayers){
+          const slots = FORMATIONS[formKey] || [];
+          const usedIds = new Set();
+          const assignedLineup = [];
+          let total = 0;
+          for(const slot of slots){
+            const pos = slot.p;
+            let best = null, bestScore = -1;
+            for(const p of candPlayers){
+              if(usedIds.has(p.id)) continue;
+              const fits = calcPositionFits(p.attrs||{}, abilities);
+              const sc = fits[pos] ?? 0;
+              if(sc > bestScore){ bestScore = sc; best = p; }
+            }
+            if(best){ usedIds.add(best.id); assignedLineup.push(best.id); total += bestScore; }
+            else { assignedLineup.push(null); }
+          }
+          const score = slots.length > 0 ? Math.round(total / slots.length) : 0;
+          return { score, lineup: assignedLineup };
+        }
+        const candPlayers = formFilter==="all" ? players : players.filter(p=>p.tid===formFilter||(formFilter==="none"&&!p.tid));
+        const ranked = Object.keys(FORMATIONS)
+          .map(fk => { const r=calcFormScore(fk, candPlayers); return {fk, score:r.score, lineup:r.lineup}; })
+          .sort((a,b)=>b.score-a.score)
+          .slice(0,3);
+        const MEDAL = ["🥇","🥈","🥉"];
+        return (
+          <div onClick={()=>setRecFormOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.78)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1200,padding:16}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:"#0a1a2e",border:"1px solid #1d4a86",borderRadius:14,width:520,maxWidth:"96vw",maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
+              <div style={{display:"flex",alignItems:"center",padding:"14px 18px",borderBottom:"1px solid #1d4a86"}}>
+                <div style={{fontFamily:"'Oswald',sans-serif",fontSize:16,fontWeight:700,color:"#4499dd"}}>🎯 추천 포메이션</div>
+                <div style={{marginLeft:10,fontSize:11,color:"#4a6ea0"}}>현재 선수 {candPlayers.length}명 기준</div>
+                <button onClick={()=>setRecFormOpen(false)} style={{marginLeft:"auto",background:"transparent",border:"none",color:"#6f97c4",fontSize:18,cursor:"pointer"}}>✕</button>
+              </div>
+              <div style={{padding:"14px 18px",overflowY:"auto"}}>
+                {candPlayers.length===0 && (
+                  <div style={{color:"#4a6ea0",fontSize:12,textAlign:"center",padding:24}}>선수가 없습니다. 오른쪽에서 팀 필터를 확인하세요.</div>
+                )}
+                {ranked.map(({fk, score, lineup:newLineup}, ri)=>{
+                  const notes = FORMATION_NOTES[fk];
+                  const slots = FORMATIONS[fk]||[];
+                  const filled = newLineup.filter(Boolean).length;
+                  const missing = slots.length - filled;
+                  const scoreColor = score>=70?"#3ecb8f":score>=50?"#f0a83a":"#e05858";
+                  return (
+                    <div key={fk} style={{border:"1px solid #1d4a86",borderRadius:10,marginBottom:12,overflow:"hidden"}}>
+                      <div style={{background:"#071526",padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
+                        <span style={{fontSize:20}}>{MEDAL[ri]}</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:15,color:"#e6f1ff"}}>{fk}</div>
+                          {missing>0 && <div style={{fontSize:10,color:"#f0a83a"}}>선수 {missing}명 부족</div>}
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontFamily:"'Oswald',sans-serif",fontSize:22,fontWeight:700,color:scoreColor,lineHeight:1}}>{score}</div>
+                          <div style={{fontSize:9,color:"#4a6ea0"}}>스쿼드 적합도</div>
+                        </div>
+                      </div>
+                      {notes && (
+                        <div style={{padding:"9px 14px",background:"#0c1f38",display:"flex",flexDirection:"column",gap:4}}>
+                          <div style={{display:"flex",gap:8}}>
+                            <span style={{fontSize:10,fontWeight:700,color:"#3ecb8f",width:28,flexShrink:0}}>강점</span>
+                            <span style={{fontSize:11,color:"#c0d4ee"}}>{notes.강점}</span>
+                          </div>
+                          <div style={{display:"flex",gap:8}}>
+                            <span style={{fontSize:10,fontWeight:700,color:"#e05858",width:28,flexShrink:0}}>약점</span>
+                            <span style={{fontSize:11,color:"#c0d4ee"}}>{notes.약점}</span>
+                          </div>
+                          <div style={{display:"flex",gap:8}}>
+                            <span style={{fontSize:10,fontWeight:700,color:"#f0a83a",width:28,flexShrink:0}}>추천</span>
+                            <span style={{fontSize:11,color:"#8899aa"}}>{notes.추천}</span>
+                          </div>
+                        </div>
+                      )}
+                      <div style={{padding:"8px 14px",background:"#071526",borderTop:"1px solid #123258",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                        <div style={{flex:1,fontSize:11,color:"#4a6ea0"}}>
+                          {newLineup.map((pid,si)=>{
+                            const p=players.find(x=>x.id===pid); const pos=slots[si]?.p||"";
+                            return <span key={si} style={{marginRight:6,color:pid?"#8fbaf0":"#4a6ea0"}}>{pos}{pid?` ${p?.name?.split(" ").pop()||""}`:"(-)"}</span>;
+                          })}
+                        </div>
+                        <button
+                          onClick={()=>{
+                            setFormation(fk);
+                            setLineup(newLineup.length===slots.length ? [...newLineup] : [...newLineup, ...Array(Math.max(0,slots.length-newLineup.length)).fill(null)]);
+                            setSlotPositions({}); setSlotPosOverrides({}); setSelSlot(null);
+                            setRecFormOpen(false);
+                          }}
+                          style={{background:"#1e6fbf",border:"none",color:"#fff",borderRadius:6,padding:"7px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+                          이 포메이션 적용
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* SNAPSHOT MODAL */}
       {snapModal && (
