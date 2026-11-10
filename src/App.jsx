@@ -742,300 +742,229 @@ function buildPlayerReportFullDoc(p, team, abilities, groups, radarAxes, trainCa
   const TXT="#e6f1ff", TXT2="#c0d4ee", TXT3="#8899aa", TXT4="#4f6a8a";
   const E = escapeHtml;
 
-  // OVR ring
-  const rr=28, rc=2*Math.PI*rr;
-  const ovrRing=`<svg width="70" height="70" xmlns="http://www.w3.org/2000/svg"><circle cx="35" cy="35" r="${rr}" fill="none" stroke="${BORDER}" stroke-width="5"/><circle cx="35" cy="35" r="${rr}" fill="none" stroke="${ovrC}" stroke-width="5" stroke-dasharray="${rc.toFixed(1)}" stroke-dashoffset="${(rc*(1-v/100)).toFixed(1)}" transform="rotate(-90 35 35)"/><text x="35" y="35" text-anchor="middle" dominant-baseline="central" font-size="17" font-weight="900" fill="${ovrC}" font-family="Arial Black,sans-serif">${v}</text></svg>`;
-
-  // Photo
+  // ── 헤더 사진 (소형, 48×48) ──
   const photoEl = p.photo
-    ? `<img src="${p.photo}" style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid ${BORDER};"/>`
-    : `<div style="width:88px;height:88px;border-radius:50%;background:${BG3};display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:${TXT};font-family:Arial Black,sans-serif;">${v}</div>`;
+    ? `<img src="${p.photo}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid ${BORDER};flex-shrink:0;"/>`
+    : `<div style="width:48px;height:48px;border-radius:50%;background:${BG3};border:2px solid ${BORDER};display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">👤</div>`;
 
-  // Radar SVG — GroupRadar style (one colored polygon per group, superimposed)
+  // ── OVR 링 (소형, 52×52) ──
+  const rr=22, rc=2*Math.PI*rr;
+  const ovrRing=`<svg width="52" height="52" xmlns="http://www.w3.org/2000/svg"><circle cx="26" cy="26" r="${rr}" fill="none" stroke="${BORDER}" stroke-width="4"/><circle cx="26" cy="26" r="${rr}" fill="none" stroke="${ovrC}" stroke-width="4" stroke-dasharray="${rc.toFixed(1)}" stroke-dashoffset="${(rc*(1-v/100)).toFixed(1)}" transform="rotate(-90 26 26)"/><text x="26" y="26" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="900" fill="${ovrC}" font-family="Arial Black,sans-serif">${v}</text></svg>`;
+
+  // ── 레이더 SVG (160×160) ──
   let radarSvg="";
   {
-    const sz=200, rcx=100, rcy=100, rr=68;
-    const rings=[25,50,75,99].map(lvl=>`<circle cx="${rcx}" cy="${rcy}" r="${(rr*lvl/99).toFixed(1)}" fill="none" stroke="${BORDER2}" stroke-width="0.8"/>`).join("");
+    const sz=160, rcx=80, rcy=80, rr2=55;
+    const rings=[25,50,75,99].map(lvl=>`<circle cx="${rcx}" cy="${rcy}" r="${(rr2*lvl/99).toFixed(1)}" fill="none" stroke="${BORDER2}" stroke-width="0.7"/>`).join("");
     const activeGroups=groups.filter(g=>abilities.some(a=>a.group===g.id));
     const polys=activeGroups.map((g,gi)=>{
       const col=grpC[gi%grpC.length];
       const gAbs=abilities.filter(a=>a.group===g.id);
       const m=gAbs.length; if(m<2) return "";
-      const pts=gAbs.map((ab,i)=>{const a=(Math.PI*2*i/m)-Math.PI/2;const v=abScore(ab,p.attrs?.[ab.key])??0;return {x:rcx+rr*(v/99)*Math.cos(a),y:rcy+rr*(v/99)*Math.sin(a)};});
+      const pts=gAbs.map((ab,i)=>{const a=(Math.PI*2*i/m)-Math.PI/2;const sv=abScore(ab,p.attrs?.[ab.key])??0;return {x:rcx+rr2*(sv/99)*Math.cos(a),y:rcy+rr2*(sv/99)*Math.sin(a)};});
       const d=pts.map((pt,i)=>`${i===0?"M":"L"}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join(" ")+"Z";
-      const dots=pts.map(pt=>`<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="3.5" fill="${col}" stroke="${BG2}" stroke-width="1"/>`).join("");
-      return `<path d="${d}" fill="${col}" fill-opacity="0.18" stroke="${col}" stroke-width="2" stroke-linejoin="round"/>${dots}`;
+      const dots=pts.map(pt=>`<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="2.5" fill="${col}" stroke="${BG2}" stroke-width="0.8"/>`).join("");
+      return `<path d="${d}" fill="${col}" fill-opacity="0.18" stroke="${col}" stroke-width="1.6" stroke-linejoin="round"/>${dots}`;
     }).join("");
-    const legendY=sz-6;
-    const legend=activeGroups.map((g,gi)=>{const col=grpC[gi%grpC.length];const lx=8+gi*62;return `<rect x="${lx}" y="${legendY-9}" width="9" height="9" fill="${col}" rx="2"/><text x="${lx+12}" y="${legendY}" font-size="9" fill="${col}" font-weight="700" font-family="'Malgun Gothic',sans-serif">${E(g.name)}</text>`;}).join("");
     if(activeGroups.length>=2){
-      radarSvg=`<svg width="${sz}" height="${sz}" xmlns="http://www.w3.org/2000/svg"><rect width="${sz}" height="${sz}" fill="${BG2}" rx="6"/>${rings}${polys}${legend}</svg>`;
+      radarSvg=`<svg width="${sz}" height="${sz}" xmlns="http://www.w3.org/2000/svg"><rect width="${sz}" height="${sz}" fill="${BG2}" rx="5"/>${rings}${polys}</svg>`;
     }
   }
 
-  // Ability bars
-  const abilityHtml = groups.map((g,gi)=>{
-    const abs = abilities.filter(a=>a.group===g.id);
-    if(!abs.length) return "";
+  // ── 그룹별 카테고리 점수 바 ──
+  const groupBars = groups.map((g,gi)=>{
+    const sc=groupScore(g.id,p.attrs,abilities);
     const col=grpC[gi%grpC.length];
-    const rows=abs.map(ab=>{
-      const raw=p.attrs?.[ab.key]; const sc=abScore(ab,raw); const val=fmtVal(ab,raw);
-      return `<div style="margin-bottom:4px;display:flex;align-items:center;gap:5px;">
-        <span style="font-size:9.5px;color:${TXT2};width:62px;flex-shrink:0;overflow:hidden;white-space:nowrap;">${E(ab.label)}</span>
-        <div style="flex:1;height:7px;background:${BG3};border-radius:3px;overflow:hidden;"><div style="width:${sc??0}%;height:100%;background:${col};border-radius:3px;opacity:0.9;"></div></div>
-        <span style="font-size:10.5px;font-weight:700;color:${TXT};width:26px;text-align:right;">${E(val)}</span>
-        <span style="font-size:9px;color:${col};font-weight:700;width:18px;text-align:right;">${sc!=null?sc:""}</span>
-      </div>`;
-    }).join("");
-    return `<div style="margin-bottom:9px;"><div style="font-size:9.5px;font-weight:700;color:${col};letter-spacing:0.5px;border-left:3px solid ${col};padding-left:5px;margin-bottom:5px;">${E(g.name)}</div>${rows}</div>`;
+    return `<div style="margin-bottom:4px;"><div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span style="font-size:8px;font-weight:700;color:${col};">${E(g.name)}</span><span style="font-size:8px;font-weight:700;color:${col};">${sc}</span></div><div style="height:5px;background:${BG3};border-radius:3px;overflow:hidden;"><div style="width:${sc}%;height:100%;background:${col};border-radius:3px;"></div></div></div>`;
   }).join("");
 
-  // Position fit chart + top3 detail
-  const fitRows = sorted.map(([pos,score],i)=>{
+  // ── 능력치 바 (2단 컬럼, 초소형) ──
+  const allAbRows = abilities.map(ab=>{
+    const raw=p.attrs?.[ab.key]; const sc=abScore(ab,raw); const val=fmtVal(ab,raw);
+    const gi=groups.findIndex(g=>g.id===ab.group); const col=grpC[gi<0?0:gi%grpC.length];
+    const sc0=sc??0;
+    return `<div style="margin-bottom:3px;display:flex;align-items:center;gap:3px;">
+      <span style="font-size:7.5px;color:${TXT3};width:46px;flex-shrink:0;overflow:hidden;white-space:nowrap;">${E(ab.label)}</span>
+      <div style="flex:1;height:5px;background:${BG3};border-radius:2px;overflow:hidden;"><div style="width:${sc0}%;height:100%;background:${col};border-radius:2px;"></div></div>
+      <span style="font-size:8px;font-weight:700;color:${TXT};width:20px;text-align:right;">${E(val)}</span>
+    </div>`;
+  });
+  const half=Math.ceil(allAbRows.length/2);
+  const abilityHtml=`<div style="display:flex;gap:8px;">
+    <div style="flex:1;">${allAbRows.slice(0,half).join("")}</div>
+    <div style="width:1px;background:${BORDER2};flex-shrink:0;"></div>
+    <div style="flex:1;">${allAbRows.slice(half).join("")}</div>
+  </div>`;
+
+  // ── 포지션 적합도 (TOP 5 바 + TOP 3 포지션 chip) ──
+  const fitRows = sorted.slice(0,5).map(([pos,score],i)=>{
     const col=i<3?(posC[pos]||"#4aa3e0"):TXT4;
     const pct=(score/maxFit*100).toFixed(1);
-    return `<div style="margin-bottom:5px;display:flex;align-items:center;gap:7px;">
-      <span style="font-size:10.5px;font-weight:700;color:${col};width:36px;font-family:Arial Black,sans-serif;">${pos}</span>
-      <div style="flex:1;height:9px;background:${BG3};border-radius:4px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${col};border-radius:4px;"></div></div>
-      <span style="font-size:11px;font-weight:700;color:${col};width:26px;text-align:right;">${score}</span>
-      <span style="width:14px;font-size:11px;color:#f0a83a;">${i===0?"★":""}</span>
+    return `<div style="margin-bottom:3px;display:flex;align-items:center;gap:5px;">
+      <span style="font-size:9px;font-weight:700;color:${col};width:30px;">${pos}</span>
+      <div style="flex:1;height:6px;background:${BG3};border-radius:3px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${col};border-radius:3px;"></div></div>
+      <span style="font-size:9px;font-weight:700;color:${col};width:22px;text-align:right;">${score}</span>
+      <span style="width:10px;font-size:9px;color:#f0a83a;">${i===0?"★":""}</span>
     </div>`;
   }).join("");
 
-  const top3Detail = sorted.slice(0,3).map(([pos])=>{
+  const top3Chips = sorted.slice(0,3).map(([pos])=>{
     const col=posC[pos]||"#4aa3e0";
     const weights = {};
     abilities.forEach(ab=>{ if(ab.posWeights?.[pos]) weights[ab.key]=ab.posWeights[pos]; });
-    const wEntries = Object.entries(Object.keys(weights).length ? weights : (POSITION_PROFILES[pos]||{})).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const wEntries=Object.entries(Object.keys(weights).length?weights:(POSITION_PROFILES[pos]||{})).sort((a,b)=>b[1]-a[1]).slice(0,4);
     const chips=wEntries.map(([key])=>{
       const ab=abilities.find(a=>a.key===key); if(!ab) return "";
       const sc=abScore(ab,p.attrs?.[key]);
       const cc=sc!=null?(sc>=70?"#3ecb8f":sc>=50?"#f0a83a":"#e05858"):TXT4;
-      return `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:${BG3};border:1px solid ${cc}55;border-radius:4px;margin:2px 2px 2px 0;">
-        <span style="font-size:8.5px;color:${TXT3};">${E(ab.label)}</span>
-        <span style="font-size:10.5px;font-weight:700;color:${cc};">${sc??"-"}</span>
-      </span>`;
+      return `<span style="display:inline-flex;align-items:center;gap:2px;padding:1px 5px;background:${BG3};border:1px solid ${cc}44;border-radius:3px;margin:1px 1px 1px 0;"><span style="font-size:7px;color:${TXT3};">${E(ab.label)}</span><span style="font-size:8.5px;font-weight:700;color:${cc};">${sc??"-"}</span></span>`;
     }).join("");
-    return `<div style="margin-bottom:8px;"><div style="font-size:10px;font-weight:700;color:${col};border-left:3px solid ${col};padding-left:5px;margin-bottom:4px;">${pos} <span style="font-size:9px;font-weight:400;color:${TXT3};">핵심 능력치</span></div><div>${chips}</div></div>`;
+    return `<div style="margin-bottom:5px;"><span style="font-size:8.5px;font-weight:700;color:${col};border-left:2px solid ${col};padding-left:4px;margin-right:5px;">${pos}</span>${chips}</div>`;
   }).join("");
 
-  // Growth history
-  let growthHtml="";
-  if((p.history||[]).length>=1){
-    const hist=(p.history||[]).slice(-8);
+  // ── 성장 추적 (OVR 차트 + 최근 스냅샷 목록, 테이블 없음) ──
+  let growthHtml="<div style='font-size:8px;color:"+TXT4+";'>스냅샷 없음</div>";
+  const hist=(p.history||[]).slice(-6);
+  if(hist.length>=1){
     const ovrs=hist.map(h=>ovrFrom(h.attrs||{},abilities));
-    const mn=Math.max(0,Math.min(...ovrs)-8), mx=Math.min(99,Math.max(...ovrs)+8);
-
     let lineSvg="";
     if(hist.length>=2){
-      const W=580,H=90,pl=8,pr=8,pt2=8,pb=20;
+      const W=300,H=65,pl=12,pr=6,pt2=8,pb=18;
       const iW=W-pl-pr, iH=H-pt2-pb;
+      const mn=Math.max(0,Math.min(...ovrs)-6), mx=Math.min(99,Math.max(...ovrs)+6);
       const xf=i=>pl+i*(iW/(hist.length-1));
-      const yf=v=>pt2+iH-(((v-mn)/(mx-mn||1))*iH);
-      const pts=ovrs.map((v,i)=>`${xf(i).toFixed(1)},${yf(v).toFixed(1)}`).join(" ");
-      const d=ovrs.map((v,i)=>`${i===0?"M":"L"}${xf(i).toFixed(1)},${yf(v).toFixed(1)}`).join(" ");
+      const yf=val=>pt2+iH-(((val-mn)/(mx-mn||1))*iH);
+      const pts=ovrs.map((val,i)=>`${xf(i).toFixed(1)},${yf(val).toFixed(1)}`).join(" ");
+      const d=ovrs.map((val,i)=>`${i===0?"M":"L"}${xf(i).toFixed(1)},${yf(val).toFixed(1)}`).join(" ");
       const area=d+` L${xf(hist.length-1).toFixed(1)},${(pt2+iH).toFixed(1)} L${pl},${(pt2+iH).toFixed(1)} Z`;
-      const gridLines=[mn,Math.round((mn+mx)/2),mx].map(gv=>{
-        const gy=yf(gv).toFixed(1);
-        return `<line x1="${pl}" y1="${gy}" x2="${W-pr}" y2="${gy}" stroke="${BORDER2}" stroke-width="0.8" stroke-dasharray="3 3"/><text x="${pl-3}" y="${gy}" text-anchor="end" dominant-baseline="middle" font-size="7" fill="${TXT4}">${gv}</text>`;
-      }).join("");
-      const dots=ovrs.map((v,i)=>{
-        const cx=xf(i).toFixed(1),cy=yf(v).toFixed(1);
-        const vc=v>=70?"#3ecb8f":v>=50?"#f0a83a":"#e05858";
-        const label=hist[i].label?E(hist[i].label.slice(0,6)):"";
+      const dots=ovrs.map((val,i)=>{
+        const cx=xf(i).toFixed(1),cy=yf(val).toFixed(1);
+        const vc=val>=70?"#3ecb8f":val>=50?"#f0a83a":"#e05858";
         const dateShort=E((hist[i].date||"").replace(/\d{4}\./,"").trim());
-        return `<circle cx="${cx}" cy="${cy}" r="4" fill="${vc}" stroke="${BG2}" stroke-width="1.2"/>
-          <text x="${cx}" y="${(Number(cy)-8).toFixed(1)}" text-anchor="middle" font-size="8.5" font-weight="700" fill="${vc}">${v}</text>
-          <text x="${cx}" y="${(pt2+iH+12).toFixed(1)}" text-anchor="middle" font-size="7" fill="${TXT3}">${dateShort}</text>
-          ${label?`<text x="${cx}" y="${(pt2+iH+20).toFixed(1)}" text-anchor="middle" font-size="6.5" fill="${TXT4}">${label}</text>`:""}`;
+        return `<circle cx="${cx}" cy="${cy}" r="3" fill="${vc}" stroke="${BG2}" stroke-width="1"/>
+          <text x="${cx}" y="${(Number(cy)-6).toFixed(1)}" text-anchor="middle" font-size="7" font-weight="700" fill="${vc}">${val}</text>
+          <text x="${cx}" y="${(pt2+iH+10).toFixed(1)}" text-anchor="middle" font-size="6" fill="${TXT3}">${dateShort}</text>`;
       }).join("");
-      lineSvg=`<svg width="100%" viewBox="0 0 ${W} ${H+10}" xmlns="http://www.w3.org/2000/svg" style="display:block;">
-        ${gridLines}
+      lineSvg=`<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;margin-bottom:5px;">
         <path d="${area}" fill="rgba(74,163,224,0.1)"/>
-        <polyline points="${pts}" fill="none" stroke="#4aa3e0" stroke-width="2" stroke-linejoin="round"/>
+        <polyline points="${pts}" fill="none" stroke="#4aa3e0" stroke-width="1.5" stroke-linejoin="round"/>
         ${dots}
       </svg>`;
     }
-
-    const histRev=[...hist].reverse();
-    const trs=histRev.map((h,i)=>{
+    const snapList=[...hist].reverse().slice(0,5).map((h,i,arr)=>{
       const ho=ovrFrom(h.attrs||{},abilities);
-      const prev=histRev[i+1]?ovrFrom((histRev[i+1].attrs||{}),abilities):null;
+      const prev=arr[i+1]?ovrFrom((arr[i+1].attrs||{}),abilities):null;
       const diff=prev!=null?ho-prev:null;
       const hc=ho>=70?"#3ecb8f":ho>=50?"#f0a83a":"#e05858";
       const dc=diff===null?"":diff>0?"#3ecb8f":diff<0?"#e05858":TXT3;
-      const da=diff===null?"—":diff>0?`▲${diff}`:diff<0?`▼${Math.abs(diff)}`:"±0";
-      return `<tr style="border-bottom:1px solid ${BORDER2};">
-        <td style="padding:4px 8px;font-size:9.5px;color:${TXT3};">${E(h.date||"")}</td>
-        <td style="padding:4px 8px;font-size:9.5px;color:${TXT3};">${E(h.label||"")}</td>
-        <td style="padding:4px 8px;text-align:center;font-size:12px;font-weight:700;color:${hc};">${ho}</td>
-        <td style="padding:4px 8px;text-align:center;font-size:10px;font-weight:700;color:${dc};">${da}</td>
-      </tr>`;
+      const da=diff===null?"":diff>0?`+${diff}`:diff<0?`${diff}`:"±0";
+      return `<div style="display:flex;align-items:center;gap:5px;padding:2px 0;border-bottom:1px solid ${BORDER2};">
+        <span style="font-size:11px;font-weight:900;color:${hc};width:24px;">${ho}</span>
+        <span style="font-size:7.5px;color:${TXT3};flex:1;overflow:hidden;white-space:nowrap;">${E(h.label||h.date||"")}</span>
+        ${diff!==null?`<span style="font-size:8px;font-weight:700;color:${dc};">${da}</span>`:""}
+      </div>`;
     }).join("");
-
-    let abilityChangeHtml="";
-    if(hist.length>=2){
-      const first=hist[0], last=hist[hist.length-1];
-      const rows=abilities.map(ab=>{
-        const v1=abScore(ab,first.attrs?.[ab.key]), v2=abScore(ab,last.attrs?.[ab.key]);
-        if(v1===null&&v2===null) return null;
-        const diff=(v1!=null&&v2!=null)?v2-v1:null;
-        if(diff===0) return null;
-        const dc=diff>0?"#3ecb8f":diff<0?"#e05858":TXT3;
-        const da=diff>0?`▲${diff}`:diff<0?`▼${Math.abs(diff)}`:"±0";
-        return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">
-          <span style="font-size:9px;color:${TXT2};flex:1;overflow:hidden;white-space:nowrap;">${E(ab.label)}</span>
-          <span style="font-size:9px;color:${TXT4};">${v1??"-"}</span>
-          <span style="font-size:8px;color:${TXT4};">→</span>
-          <span style="font-size:10px;font-weight:700;color:${v2>=70?"#3ecb8f":v2>=50?"#f0a83a":"#e05858"};">${v2??"-"}</span>
-          <span style="font-size:9px;font-weight:700;color:${dc};width:28px;text-align:right;">${da}</span>
-        </div>`;
-      }).filter(Boolean);
-      if(rows.length){
-        const half=Math.ceil(rows.length/2);
-        abilityChangeHtml=`<div style="margin-top:10px;">
-          <div style="font-size:9px;font-weight:700;color:#4aa3e0;letter-spacing:1px;margin-bottom:6px;">능력치별 변화 (${E(first.date||"")} → ${E(last.date||"")})</div>
-          <div style="display:flex;gap:12px;">
-            <div style="flex:1;">${rows.slice(0,half).join("")}</div>
-            <div style="width:1px;background:${BORDER2};flex-shrink:0;"></div>
-            <div style="flex:1;">${rows.slice(half).join("")}</div>
-          </div>
-        </div>`;
-      }
-    }
-
-    growthHtml=`<div style="margin-top:12px;border:1px solid ${BORDER};border-radius:6px;overflow:hidden;">
-      <div style="background:${BG3};color:${TXT};padding:7px 14px;font-size:10px;font-weight:700;letter-spacing:1px;border-bottom:1px solid ${BORDER};">📈 성장 추적 (스냅샷 ${hist.length}회)</div>
-      <div style="padding:10px 14px;background:${BG2};">
-        ${lineSvg}
-        <div style="display:flex;gap:12px;margin-top:10px;">
-          <div style="flex:1.4;">
-            <table style="width:100%;border-collapse:collapse;">
-              <thead><tr style="background:${BG3};">
-                <th style="padding:4px 8px;font-size:9px;color:${TXT3};text-align:left;">날짜</th>
-                <th style="padding:4px 8px;font-size:9px;color:${TXT3};text-align:left;">라벨</th>
-                <th style="padding:4px 8px;font-size:9px;color:${TXT3};text-align:center;">OVR</th>
-                <th style="padding:4px 8px;font-size:9px;color:${TXT3};text-align:center;">변화</th>
-              </tr></thead>
-              <tbody>${trs}</tbody>
-            </table>
-          </div>
-          ${hist.length>=2?`<div style="width:1px;background:${BORDER2};flex-shrink:0;"></div><div style="flex:1;">${abilityChangeHtml}</div>`:""}
-        </div>
-      </div>
-    </div>`;
+    growthHtml=lineSvg+snapList;
   }
 
-  // Training recommendations — weak abilities + catalog
-  let trainingHtml="";
+  // ── 훈련 추천 (TOP 3 약점, 추천 1개씩) ──
+  let trainHtml="<div style='font-size:8px;color:"+TXT4+";'>능력치 데이터 없음</div>";
   {
-    const catalog = trainCatalog || {};
-    const scored = abilities
-      .map(ab=>({ab, score: abScore(ab, p.attrs?.[ab.key])}))
-      .filter(x=>x.score!==null)
-      .sort((a,b)=>a.score-b.score);
-    const weakList = scored.slice(0, Math.max(3, scored.filter(x=>x.score<60).length)).slice(0,10);
-    const displayWeak = weakList.slice(0,3).concat(weakList.slice(3).filter(x=>x.score<60));
-    if(displayWeak.length>0){
-      const rows = displayWeak.map(({ab, score})=>{
-        const gi = groups.findIndex(g=>g.id===ab.group);
-        const gc = grpC[gi<0?0:gi%grpC.length];
-        const grpName = groups.find(g=>g.id===ab.group)?.name||"";
-        const recs = (catalog[ab.group]||[]).slice(0,2);
-        const badge = score<60
-          ? `<span style="font-size:8.5px;color:#e05858;font-weight:700;margin-left:4px;">⚠ 취약</span>`
-          : "";
-        const recHtml = recs.length
-          ? recs.map((r,i)=>`<div style="display:flex;align-items:center;gap:5px;padding:3px 6px;background:${BG3};border-radius:4px;margin-top:3px;"><span style="font-size:9px;color:${gc};font-weight:700;">${i+1}</span><span style="font-size:9px;color:${TXT2};">${E(r)}</span></div>`).join("")
-          : `<div style="font-size:8.5px;color:${TXT4};margin-top:3px;">훈련 항목 없음</div>`;
-        return `<div style="border-left:3px solid ${gc};padding:7px 10px;background:${BG3};border-radius:0 5px 5px 0;margin-bottom:7px;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10.5px;font-weight:700;color:${gc};">${E(ab.label)}</span>
-            <span style="background:${gc}33;color:${gc};border-radius:3px;padding:1px 6px;font-size:9.5px;font-weight:700;">${score}점</span>
-            <span style="font-size:8.5px;color:${TXT4};">${E(grpName)}</span>
+    const catalog=trainCatalog||{};
+    const scored=abilities.map(ab=>({ab,score:abScore(ab,p.attrs?.[ab.key])})).filter(x=>x.score!==null).sort((a,b)=>a.score-b.score);
+    const weak3=scored.slice(0,Math.max(3,scored.filter(x=>x.score<60).length)).slice(0,3);
+    if(weak3.length>0){
+      trainHtml=weak3.map(({ab,score})=>{
+        const gi=groups.findIndex(g=>g.id===ab.group); const gc=grpC[gi<0?0:gi%grpC.length];
+        const recs=(catalog[ab.group]||[]).slice(0,2);
+        const badge=score<60?`<span style="font-size:7px;color:#e05858;font-weight:700;"> ⚠</span>`:"";
+        const recItems=recs.map((r,i)=>`<div style="font-size:7.5px;color:${TXT2};padding:2px 5px;background:${BG3};border-radius:3px;margin-top:2px;">${i+1}. ${E(r)}</div>`).join("");
+        return `<div style="border-left:2px solid ${gc};padding:4px 7px;background:${BG3};border-radius:0 4px 4px 0;margin-bottom:5px;">
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">
+            <span style="font-size:9px;font-weight:700;color:${gc};">${E(ab.label)}</span>
+            <span style="background:${gc}33;color:${gc};border-radius:2px;padding:0 4px;font-size:8px;font-weight:700;">${score}</span>
             ${badge}
           </div>
-          ${recHtml}
+          ${recItems}
         </div>`;
       }).join("");
-      const half=Math.ceil(displayWeak.length/2);
-      const colA=displayWeak.slice(0,half).map(({ab,score})=>{
-        const gi=groups.findIndex(g=>g.id===ab.group); const gc=grpC[gi<0?0:gi%grpC.length];
-        const grpName=groups.find(g=>g.id===ab.group)?.name||"";
-        const recs=(catalog[ab.group]||[]).slice(0,2);
-        const badge=score<60?`<span style="font-size:8px;color:#e05858;font-weight:700;margin-left:3px;">⚠</span>`:"";
-        const recHtml=recs.length?recs.map((r,i)=>`<div style="display:flex;align-items:center;gap:4px;padding:3px 6px;background:${BG2};border-radius:4px;margin-top:2px;"><span style="font-size:8.5px;color:${gc};font-weight:700;">${i+1}</span><span style="font-size:8.5px;color:${TXT2};">${E(r)}</span></div>`).join(""):`<div style="font-size:8px;color:${TXT4};margin-top:2px;">항목 없음</div>`;
-        return `<div style="border-left:3px solid ${gc};padding:6px 8px;background:${BG3};border-radius:0 5px 5px 0;margin-bottom:6px;"><div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;"><span style="font-size:10px;font-weight:700;color:${gc};">${E(ab.label)}</span><span style="background:${gc}33;color:${gc};border-radius:3px;padding:1px 5px;font-size:9px;font-weight:700;">${score}점</span><span style="font-size:8px;color:${TXT4};">${E(grpName)}</span>${badge}</div>${recHtml}</div>`;
-      }).join("");
-      const colB=displayWeak.slice(half).map(({ab,score})=>{
-        const gi=groups.findIndex(g=>g.id===ab.group); const gc=grpC[gi<0?0:gi%grpC.length];
-        const grpName=groups.find(g=>g.id===ab.group)?.name||"";
-        const recs=(catalog[ab.group]||[]).slice(0,2);
-        const badge=score<60?`<span style="font-size:8px;color:#e05858;font-weight:700;margin-left:3px;">⚠</span>`:"";
-        const recHtml=recs.length?recs.map((r,i)=>`<div style="display:flex;align-items:center;gap:4px;padding:3px 6px;background:${BG2};border-radius:4px;margin-top:2px;"><span style="font-size:8.5px;color:${gc};font-weight:700;">${i+1}</span><span style="font-size:8.5px;color:${TXT2};">${E(r)}</span></div>`).join(""):`<div style="font-size:8px;color:${TXT4};margin-top:2px;">항목 없음</div>`;
-        return `<div style="border-left:3px solid ${gc};padding:6px 8px;background:${BG3};border-radius:0 5px 5px 0;margin-bottom:6px;"><div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;"><span style="font-size:10px;font-weight:700;color:${gc};">${E(ab.label)}</span><span style="background:${gc}33;color:${gc};border-radius:3px;padding:1px 5px;font-size:9px;font-weight:700;">${score}점</span><span style="font-size:8px;color:${TXT4};">${E(grpName)}</span>${badge}</div>${recHtml}</div>`;
-      }).join("");
-      trainingHtml=`<div style="margin-top:12px;border:1px solid ${BORDER};border-radius:6px;overflow:hidden;">
-        <div style="background:${BG3};color:${TXT};padding:7px 14px;font-size:10px;font-weight:700;letter-spacing:1px;border-bottom:1px solid ${BORDER};">⚽ 맞춤 훈련 추천 (약점 역량 기반)</div>
-        <div style="padding:10px 14px;background:${BG2};">
-          <div style="display:flex;gap:12px;">
-            <div style="flex:1;">${colA}</div>
-            ${colB?`<div style="width:1px;background:${BORDER2};flex-shrink:0;"></div><div style="flex:1;">${colB}</div>`:""}
-          </div>
-        </div>
-      </div>`;
     }
   }
 
   const body=`
-  <div style="background:${BG3};color:${TXT};padding:13px 18px;border-radius:7px 7px 0 0;display:flex;align-items:center;border:1px solid ${BORDER};border-bottom:none;">
-    <div><div style="font-size:8.5px;letter-spacing:2px;opacity:0.6;text-transform:uppercase;margin-bottom:2px;">EZRA FOOTBALL CLUB · Player Report</div>
-    <div style="font-size:20px;font-weight:900;letter-spacing:0.5px;">${E(p.name)}</div></div>
-    <div style="margin-left:auto;text-align:right;opacity:0.6;font-size:9.5px;">${E(teamName)}<br/>${date}</div>
-  </div>
-  <div style="background:${BG2};border:1px solid ${BORDER};border-top:none;border-radius:0 0 7px 7px;padding:6px 18px;display:flex;align-items:center;gap:14px;font-size:10.5px;color:${TXT2};margin-bottom:11px;flex-wrap:wrap;">
-    <span><b style="color:${TXT3};">포지션</b> ${E(p.pos||"-")}</span>
-    <span><b style="color:${TXT3};">나이</b> ${p.age||"-"}</span>
-    ${p.number?`<span><b style="color:${TXT3};">번호</b> ${E(String(p.number))}</span>`:""}
-    ${p.club?`<span><b style="color:${TXT3};">구단</b> ${E(p.club)}</span>`:""}
-    <span style="margin-left:auto;font-size:11.5px;"><b style="color:${TXT3};">최적 포지션</b> <b style="color:${posC[topPos]||"#4aa3e0"};font-size:14px;">${topPos}</b></span>
-    ${ovrRing}
-  </div>
-  <div style="display:flex;gap:12px;margin-bottom:11px;">
-    <div style="width:195px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;">
-      <div style="border:1px solid ${BORDER};border-radius:7px;padding:12px;background:${BG2};display:flex;flex-direction:column;align-items:center;gap:6px;">
-        ${photoEl}
-        <div style="font-size:10.5px;font-weight:700;color:${TXT};">${E(p.name)}</div>
+  <!-- 헤더 -->
+  <div style="background:${BG3};border:1px solid ${BORDER};border-radius:6px;padding:8px 12px;display:flex;align-items:center;gap:10px;margin-bottom:7px;">
+    ${photoEl}
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:7px;letter-spacing:2px;opacity:0.5;text-transform:uppercase;margin-bottom:1px;">EZRA FOOTBALL CLUB · Player Report</div>
+      <div style="font-size:18px;font-weight:900;letter-spacing:0.5px;line-height:1.1;">${E(p.name)}</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:3px;">
+        <span style="font-size:8px;color:${TXT3};"><b style="color:${TXT4};">포지션</b> ${E(p.pos||"-")}</span>
+        ${p.age?`<span style="font-size:8px;color:${TXT3};"><b style="color:${TXT4};">나이</b> ${p.age}</span>`:""}
+        ${p.number?`<span style="font-size:8px;color:${TXT3};"><b style="color:${TXT4};">#</b>${E(String(p.number))}</span>`:""}
+        ${p.club?`<span style="font-size:8px;color:${TXT3};"><b style="color:${TXT4};">구단</b> ${E(p.club)}</span>`:""}
+        ${teamName?`<span style="font-size:8px;color:${TXT3};">${E(teamName)}</span>`:""}
+        <span style="font-size:8px;color:${TXT3};margin-left:auto;">${date}</span>
       </div>
-      <div style="border:1px solid ${BORDER};border-radius:7px;padding:8px;background:${BG2};display:flex;justify-content:center;">${radarSvg}</div>
     </div>
-    <div style="flex:1;border:1px solid ${BORDER};border-radius:7px;padding:11px 13px;background:${BG2};">
-      <div style="font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#4aa3e0;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid ${BORDER2};">능력치 분석</div>
+    <div style="text-align:center;flex-shrink:0;">
+      ${ovrRing}
+      <div style="font-size:7px;color:${ovrC};font-weight:700;margin-top:1px;">OVR</div>
+    </div>
+    <div style="text-align:center;flex-shrink:0;">
+      <div style="font-size:7px;color:${TXT4};margin-bottom:2px;">최적</div>
+      <div style="font-size:16px;font-weight:900;color:${posC[topPos]||"#4aa3e0"};">${topPos}</div>
+    </div>
+  </div>
+
+  <!-- 메인 3단 -->
+  <div style="display:flex;gap:7px;margin-bottom:7px;">
+    <!-- 1단: 레이더 + 카테고리 점수 -->
+    <div style="width:172px;flex-shrink:0;border:1px solid ${BORDER};border-radius:6px;padding:7px;background:${BG2};">
+      <div style="font-size:8px;font-weight:700;color:#4aa3e0;letter-spacing:1px;margin-bottom:5px;">레이더 & 카테고리</div>
+      <div style="display:flex;justify-content:center;margin-bottom:6px;">${radarSvg}</div>
+      ${groupBars}
+    </div>
+    <!-- 2단: 포지션 적합도 -->
+    <div style="width:165px;flex-shrink:0;border:1px solid ${BORDER};border-radius:6px;padding:7px;background:${BG2};">
+      <div style="font-size:8px;font-weight:700;color:#4aa3e0;letter-spacing:1px;margin-bottom:5px;">포지션 적합도</div>
+      ${fitRows}
+      <div style="margin-top:7px;border-top:1px solid ${BORDER2};padding-top:5px;">
+        <div style="font-size:7px;color:${TXT4};margin-bottom:3px;">TOP 3 핵심 능력치</div>
+        ${top3Chips}
+      </div>
+    </div>
+    <!-- 3단: 능력치 분석 (2열) -->
+    <div style="flex:1;border:1px solid ${BORDER};border-radius:6px;padding:7px;background:${BG2};">
+      <div style="font-size:8px;font-weight:700;color:#4aa3e0;letter-spacing:1px;margin-bottom:5px;">능력치 분석</div>
       ${abilityHtml}
     </div>
   </div>
-  <div style="border:1px solid ${BORDER};border-radius:7px;padding:11px 13px;background:${BG2};margin-bottom:11px;">
-    <div style="font-size:9.5px;font-weight:700;letter-spacing:1.5px;color:#4aa3e0;margin-bottom:9px;padding-bottom:5px;border-bottom:1px solid ${BORDER2};">포지션 적합도</div>
-    <div style="display:flex;gap:14px;">
-      <div style="flex:1;">${fitRows}</div>
-      <div style="width:1px;background:${BORDER2};flex-shrink:0;"></div>
-      <div style="flex:1.1;">${top3Detail}</div>
+
+  <!-- 하단 2단: 성장 추적 | 훈련 추천 -->
+  <div style="display:flex;gap:7px;margin-bottom:7px;">
+    <div style="flex:1;border:1px solid ${BORDER};border-radius:6px;padding:7px;background:${BG2};">
+      <div style="font-size:8px;font-weight:700;color:#4aa3e0;letter-spacing:1px;margin-bottom:5px;">📈 성장 추적 (스냅샷 ${hist.length}회)</div>
+      ${growthHtml}
+    </div>
+    <div style="flex:1;border:1px solid ${BORDER};border-radius:6px;padding:7px;background:${BG2};">
+      <div style="font-size:8px;font-weight:700;color:#4aa3e0;letter-spacing:1px;margin-bottom:5px;">⚽ 맞춤 훈련 추천</div>
+      ${trainHtml}
     </div>
   </div>
-  ${growthHtml}
-  ${trainingHtml}
-  <div style="margin-top:12px;padding-top:7px;border-top:1px solid ${BORDER2};font-size:8.5px;color:${TXT4};text-align:center;letter-spacing:1px;">EZRA FOOTBALL CLUB · ${E(p.name)} · ${date}</div>`;
+
+  <div style="padding-top:5px;border-top:1px solid ${BORDER2};font-size:7.5px;color:${TXT4};text-align:center;letter-spacing:1px;">EZRA FOOTBALL CLUB · ${E(p.name)} · ${date}</div>`;
 
   return `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"/>
 <title>${E(p.name)} 선수 리포트</title>
 <style>
-  @page { margin:11mm; size:A4 portrait; }
+  @page { margin:8mm; size:A4 portrait; }
   *{ box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   body{ margin:0; background:#0a1c34; color:#e6f1ff; font-family:'Malgun Gothic','Apple SD Gothic Neo','Nanum Gothic',sans-serif; }
-  .sheet{ max-width:740px; margin:0 auto; padding:14px 18px; }
-  .toolbar{ text-align:center; margin:12px 0; }
-  .toolbar button{ font-size:14px; padding:10px 26px; cursor:pointer; border-radius:6px; border:none; background:#4aa3e0; color:#04101f; font-weight:700; letter-spacing:0.5px; }
-  @media print{ .toolbar{ display:none; } }
+  .sheet{ max-width:760px; margin:0 auto; padding:10px 14px; }
+  .toolbar{ text-align:center; margin:10px 0; }
+  .toolbar button{ font-size:13px; padding:8px 24px; cursor:pointer; border-radius:6px; border:none; background:#4aa3e0; color:#04101f; font-weight:700; }
+  @media print{ .toolbar{ display:none; } body{ font-size:9px; } }
 </style></head><body>
 <div class="toolbar"><button onclick="window.print()">🖨 인쇄하기</button></div>
 <div class="sheet">${body}</div>
