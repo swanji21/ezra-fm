@@ -1343,6 +1343,7 @@ export default function App(){
   const [trainCatalog, setTrainCatalog] = useState(DEFAULT_TRAINING_CATALOG); // 훈련 카탈로그
   const [trainCatalogOpen, setTrainCatalogOpen] = useState(false); // 훈련 카탈로그 편집 모달
   const [recFormOpen, setRecFormOpen] = useState(false); // 추천 포메이션 모달
+  const [playerReportOpen, setPlayerReportOpen] = useState(false); // 선수 리포트 모달
   const [radarEditOpen, setRadarEditOpen] = useState(false); // 선수별 레이더 편집 모달
   const [mentalSurveyPlayer, setMentalSurveyPlayer] = useState(null); // 멘탈 설문 대상 선수
   const [radarGroup, setRadarGroup] = useState(null); // 그룹 레이더 드릴다운 대상(그룹 id) / null=오버뷰
@@ -2174,6 +2175,7 @@ export default function App(){
                       <>
                         <button onClick={startEdit} style={{background:"#1d4a86",border:"1px solid #2a63a8",color:"#8fbaf0",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>✏ 편집</button>
                         <button onClick={handlePrintPlayer} style={{background:"transparent",border:"1px solid #1d4a86",color:"#8fbaf0",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>🖨 프린트</button>
+                        <button onClick={()=>setPlayerReportOpen(true)} style={{background:"linear-gradient(135deg,#1a5c99,#0e3f70)",border:"1px solid #2a7acc",color:"#7ecfff",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>📋 리포트</button>
                         <button onClick={()=>setMentalSurveyPlayer(sel)} style={{background:"linear-gradient(135deg,#f5b133,#d9911c)",border:"none",color:"#04101f",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>🧠 멘탈 설문</button>
                         <button onClick={delPlayer} style={{background:"#2a1010",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"7px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>삭제</button>
                       </>
@@ -3121,6 +3123,185 @@ export default function App(){
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* PLAYER REPORT MODAL */}
+      {playerReportOpen && display && (()=>{
+        const rp = display;
+        const rpTeam = rp.tid ? teamMap[rp.tid] : null;
+        const rpOvr = ovr(rp.attrs);
+        const rpColor = getColor(rpOvr);
+        const fits = calcPositionFits(rp.attrs||{}, abilities);
+        const topFits = Object.entries(fits).sort((a,b)=>b[1]-a[1]).slice(0,3);
+        const history = rp.history || [];
+        const latestSnap = history[history.length-1];
+        const prevSnapR = history.length>=2 ? history[history.length-2] : null;
+        const ovrDiff = latestSnap && prevSnapR ? ovr(latestSnap.attrs) - ovr(prevSnapR.attrs) : null;
+        // 훈련 추천 — 약점 TOP3
+        const scoredAbs = abilities
+          .map(ab=>({ab, score: abScore(ab, rp.attrs?.[ab.key])}))
+          .filter(x=>x.score!==null)
+          .sort((a,b)=>a.score-b.score);
+        const weakTop3 = scoredAbs.slice(0, Math.max(3, scoredAbs.filter(x=>x.score<60).length)).slice(0,3);
+
+        const reportRef = {current:null};
+        async function handleShare(){
+          const el = document.getElementById("ezra-player-report-capture");
+          if(!el) return;
+          try{
+            const html2canvas = (await import("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.esm.js")).default;
+            const canvas = await html2canvas(el, {backgroundColor:"#0a1c34", scale:2, useCORS:true, logging:false});
+            canvas.toBlob(async blob=>{
+              const file = new File([blob], `${rp.name}_리포트.png`, {type:"image/png"});
+              if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+                try{ await navigator.share({files:[file], title:`${rp.name} 선수 리포트`}); return; } catch(e){}
+              }
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a"); a.href=url; a.download=`${rp.name}_리포트.png`;
+              document.body.appendChild(a); a.click(); document.body.removeChild(a);
+              setTimeout(()=>URL.revokeObjectURL(url),2000);
+            },"image/png");
+          }catch(e){ alert("캡처 실패: "+e.message); }
+        }
+
+        const BG="#0a1c34", BG2="#0c1f38", BORDER="#1d4a86";
+        const TXT="#e6f1ff", TXT2="#c0d4ee", TXT3="#8899aa";
+        const card={background:BG2,border:`1px solid ${BORDER}`,borderRadius:8,padding:"12px 14px",marginBottom:10};
+        return (
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.82)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1500,padding:16}}>
+            <div style={{background:"#071526",border:"1px solid #1d4a86",borderRadius:12,width:"min(560px,100%)",maxHeight:"90vh",overflowY:"auto",display:"flex",flexDirection:"column"}}>
+              {/* 모달 헤더 */}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 18px",borderBottom:"1px solid #123258",flexShrink:0}}>
+                <span style={{fontSize:14,fontWeight:700,color:TXT,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>📋 선수 리포트</span>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={handleShare} style={{background:"linear-gradient(135deg,#1e6fbf,#0d4a8f)",border:"none",color:"#fff",borderRadius:6,padding:"6px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                    {(typeof navigator!=="undefined"&&navigator.share)?"📤 공유":"⬇ 저장"}
+                  </button>
+                  <button onClick={()=>setPlayerReportOpen(false)} style={{background:"transparent",border:"1px solid #1d4a86",color:TXT3,borderRadius:6,padding:"6px 10px",fontSize:13,cursor:"pointer"}}>✕</button>
+                </div>
+              </div>
+
+              {/* 캡처 영역 */}
+              <div id="ezra-player-report-capture" style={{padding:"18px 18px 14px",background:BG}}>
+                {/* 헤더: 이름 + 기본 정보 */}
+                <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:14}}>
+                  {rp.photo
+                    ? <img src={rp.photo} alt={rp.name} style={{width:70,height:84,objectFit:"cover",borderRadius:8,border:`2px solid ${rpTeam?.color||BORDER}`,flexShrink:0}}/>
+                    : <div style={{width:70,height:84,borderRadius:8,background:"#0c1f38",border:`2px solid ${BORDER}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,flexShrink:0}}>👤</div>
+                  }
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:22,fontWeight:900,fontFamily:"'Oswald',sans-serif",color:TXT,letterSpacing:1,marginBottom:4}}>{rp.name}</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {rp.number&&<span style={{background:"#0c1f38",border:`1px solid ${BORDER}`,borderRadius:4,padding:"2px 7px",fontSize:11,color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>#{rp.number}</span>}
+                      <span style={{background:"#0c1f38",border:`1px solid ${BORDER}`,borderRadius:4,padding:"2px 7px",fontSize:11,color:"#4499dd",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{rp.pos}</span>
+                      {rp.age&&<span style={{background:"#0c1f38",border:`1px solid ${BORDER}`,borderRadius:4,padding:"2px 7px",fontSize:11,color:TXT3,fontFamily:"'Barlow Condensed',sans-serif"}}>만 {rp.age}세</span>}
+                      {rp.club&&<span style={{background:"#0c1f38",border:`1px solid ${BORDER}`,borderRadius:4,padding:"2px 7px",fontSize:11,color:TXT3,fontFamily:"'Barlow Condensed',sans-serif"}}>{rp.club}</span>}
+                      {rpTeam&&<span style={{background:rpTeam.color+"22",border:`1px solid ${rpTeam.color}55`,borderRadius:4,padding:"2px 8px",fontSize:11,color:rpTeam.color,fontWeight:700}}>{rpTeam.badge} {rpTeam.name}</span>}
+                    </div>
+                  </div>
+                  <div style={{textAlign:"center",flexShrink:0}}>
+                    <div style={{fontSize:40,fontWeight:900,fontFamily:"'Oswald',sans-serif",color:rpColor,lineHeight:1}}>{rpOvr}</div>
+                    <div style={{fontSize:10,color:TXT3,fontWeight:700,letterSpacing:1}}>OVR</div>
+                  </div>
+                </div>
+
+                {/* 레이더 + 카테고리 점수 */}
+                <div style={{display:"flex",gap:12,marginBottom:10,alignItems:"flex-start"}}>
+                  <div style={{...card,flex:"0 0 auto",padding:10,marginBottom:0}}>
+                    <GroupRadar attrs={rp.attrs} groups={groups} abilities={abilities} drillGroup={null} onDrill={null}/>
+                  </div>
+                  <div style={{flex:1,display:"flex",flexDirection:"column",gap:7}}>
+                    {groups.map((g,gi)=>{
+                      const sc=groupScore(g.id,rp.attrs,abilities);
+                      const col=groupColorAt(gi);
+                      return (
+                        <div key={g.id}>
+                          <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                            <span style={{fontSize:12,fontWeight:700,color:col,fontFamily:"'Barlow Condensed',sans-serif"}}>{g.name}</span>
+                            <span style={{fontSize:12,fontWeight:700,color:col}}>{sc}점</span>
+                          </div>
+                          <div style={{height:8,background:"#071526",borderRadius:4,overflow:"hidden"}}>
+                            <div style={{width:`${sc}%`,height:"100%",background:col,borderRadius:4}}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 포지션 적합도 TOP 3 */}
+                <div style={card}>
+                  <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:9}}>포지션 적합도 TOP 3</div>
+                  <div style={{display:"flex",gap:10}}>
+                    {topFits.map(([pos,sc],i)=>(
+                      <div key={pos} style={{flex:1,textAlign:"center",background:"#071526",borderRadius:7,padding:"10px 6px"}}>
+                        <div style={{fontSize:11,color:TXT3,marginBottom:4}}>{"🥇🥈🥉"[i]}</div>
+                        <div style={{fontSize:16,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif",color:"#4499dd"}}>{pos}</div>
+                        <div style={{fontSize:12,fontWeight:700,color:getColor(sc)}}>{sc}점</div>
+                      </div>
+                    ))}
+                    {topFits.length===0&&<div style={{color:TXT3,fontSize:12}}>데이터 없음</div>}
+                  </div>
+                </div>
+
+                {/* 성장 이력 요약 */}
+                {history.length>0&&(
+                  <div style={card}>
+                    <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:9}}>성장 이력</div>
+                    <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+                      {latestSnap&&(
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <span style={{fontSize:11,color:TXT3}}>최근</span>
+                          <span style={{fontSize:22,fontWeight:900,fontFamily:"'Oswald',sans-serif",color:getColor(ovr(latestSnap.attrs))}}>{ovr(latestSnap.attrs)}</span>
+                          <div>
+                            <div style={{fontSize:11,fontWeight:700,color:TXT2}}>{latestSnap.label}</div>
+                            <div style={{fontSize:10,color:TXT3}}>{latestSnap.date}</div>
+                          </div>
+                        </div>
+                      )}
+                      {ovrDiff!==null&&(
+                        <div style={{display:"flex",alignItems:"center",gap:4}}>
+                          <span style={{fontSize:14,fontWeight:700,color:ovrDiff>0?"#3ecb8f":ovrDiff<0?"#ef5350":TXT3}}>{ovrDiff>0?"+":""}{ovrDiff}</span>
+                          <span style={{fontSize:10,color:TXT3}}>vs 이전</span>
+                        </div>
+                      )}
+                      <div style={{marginLeft:"auto",fontSize:10,color:TXT3}}>스냅샷 {history.length}개</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 약점 & 추천 훈련 */}
+                {weakTop3.length>0&&(
+                  <div style={card}>
+                    <div style={{fontSize:10,color:"#4499dd",fontWeight:700,letterSpacing:2,marginBottom:9}}>보완이 필요한 역량</div>
+                    {weakTop3.map(({ab,score})=>{
+                      const gi=groups.findIndex(g=>g.id===ab.group);
+                      const gc=groupColorAt(gi<0?0:gi);
+                      const recs=(trainCatalog[ab.group]||[]).slice(0,2);
+                      return (
+                        <div key={ab.key} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"7px 0",borderBottom:"1px solid #0c1f38"}}>
+                          <div style={{flex:1}}>
+                            <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}>
+                              <span style={{fontWeight:700,color:gc,fontSize:12,fontFamily:"'Barlow Condensed',sans-serif"}}>{ab.label}</span>
+                              <span style={{background:gc+"33",color:gc,borderRadius:3,padding:"1px 6px",fontSize:11,fontWeight:700}}>{score}점</span>
+                              {score<60&&<span style={{fontSize:10,color:"#e05858",fontWeight:700}}>⚠ 취약</span>}
+                            </div>
+                            {recs.length>0&&<div style={{fontSize:11,color:TXT3}}>{recs.map((r,i)=><span key={i}>{i>0?" · ":""}{r}</span>)}</div>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* 발급일 푸터 */}
+                <div style={{textAlign:"right",fontSize:9,color:"#2a4a6a",marginTop:6}}>
+                  EZRA FM · {new Date().toLocaleDateString("ko-KR")} 발급
+                </div>
               </div>
             </div>
           </div>
