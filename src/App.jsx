@@ -726,7 +726,7 @@ function openPrintWindowFullDoc(fullHtml){
   else { setTimeout(go,200); }
 }
 
-function buildPlayerReportFullDoc(p, team, abilities, groups, radarAxes){
+function buildPlayerReportFullDoc(p, team, abilities, groups, radarAxes, trainCatalog){
   const v = ovrFrom(p.attrs||{}, abilities);
   const fits = calcPositionFits(p.attrs||{}, abilities);
   const sorted = Object.entries(fits).sort((a,b)=>b[1]-a[1]);
@@ -926,6 +926,67 @@ function buildPlayerReportFullDoc(p, team, abilities, groups, radarAxes){
     </div>`;
   }
 
+  // Training recommendations — weak abilities + catalog
+  let trainingHtml="";
+  {
+    const catalog = trainCatalog || {};
+    const scored = abilities
+      .map(ab=>({ab, score: abScore(ab, p.attrs?.[ab.key])}))
+      .filter(x=>x.score!==null)
+      .sort((a,b)=>a.score-b.score);
+    const weakList = scored.slice(0, Math.max(3, scored.filter(x=>x.score<60).length)).slice(0,10);
+    const displayWeak = weakList.slice(0,3).concat(weakList.slice(3).filter(x=>x.score<60));
+    if(displayWeak.length>0){
+      const rows = displayWeak.map(({ab, score})=>{
+        const gi = groups.findIndex(g=>g.id===ab.group);
+        const gc = grpC[gi<0?0:gi%grpC.length];
+        const grpName = groups.find(g=>g.id===ab.group)?.name||"";
+        const recs = (catalog[ab.group]||[]).slice(0,2);
+        const badge = score<60
+          ? `<span style="font-size:8.5px;color:#e05858;font-weight:700;margin-left:4px;">⚠ 취약</span>`
+          : "";
+        const recHtml = recs.length
+          ? recs.map((r,i)=>`<div style="display:flex;align-items:center;gap:5px;padding:3px 6px;background:${BG3};border-radius:4px;margin-top:3px;"><span style="font-size:9px;color:${gc};font-weight:700;">${i+1}</span><span style="font-size:9px;color:${TXT2};">${E(r)}</span></div>`).join("")
+          : `<div style="font-size:8.5px;color:${TXT4};margin-top:3px;">훈련 항목 없음</div>`;
+        return `<div style="border-left:3px solid ${gc};padding:7px 10px;background:${BG3};border-radius:0 5px 5px 0;margin-bottom:7px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:10.5px;font-weight:700;color:${gc};">${E(ab.label)}</span>
+            <span style="background:${gc}33;color:${gc};border-radius:3px;padding:1px 6px;font-size:9.5px;font-weight:700;">${score}점</span>
+            <span style="font-size:8.5px;color:${TXT4};">${E(grpName)}</span>
+            ${badge}
+          </div>
+          ${recHtml}
+        </div>`;
+      }).join("");
+      const half=Math.ceil(displayWeak.length/2);
+      const colA=displayWeak.slice(0,half).map(({ab,score})=>{
+        const gi=groups.findIndex(g=>g.id===ab.group); const gc=grpC[gi<0?0:gi%grpC.length];
+        const grpName=groups.find(g=>g.id===ab.group)?.name||"";
+        const recs=(catalog[ab.group]||[]).slice(0,2);
+        const badge=score<60?`<span style="font-size:8px;color:#e05858;font-weight:700;margin-left:3px;">⚠</span>`:"";
+        const recHtml=recs.length?recs.map((r,i)=>`<div style="display:flex;align-items:center;gap:4px;padding:3px 6px;background:${BG2};border-radius:4px;margin-top:2px;"><span style="font-size:8.5px;color:${gc};font-weight:700;">${i+1}</span><span style="font-size:8.5px;color:${TXT2};">${E(r)}</span></div>`).join(""):`<div style="font-size:8px;color:${TXT4};margin-top:2px;">항목 없음</div>`;
+        return `<div style="border-left:3px solid ${gc};padding:6px 8px;background:${BG3};border-radius:0 5px 5px 0;margin-bottom:6px;"><div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;"><span style="font-size:10px;font-weight:700;color:${gc};">${E(ab.label)}</span><span style="background:${gc}33;color:${gc};border-radius:3px;padding:1px 5px;font-size:9px;font-weight:700;">${score}점</span><span style="font-size:8px;color:${TXT4};">${E(grpName)}</span>${badge}</div>${recHtml}</div>`;
+      }).join("");
+      const colB=displayWeak.slice(half).map(({ab,score})=>{
+        const gi=groups.findIndex(g=>g.id===ab.group); const gc=grpC[gi<0?0:gi%grpC.length];
+        const grpName=groups.find(g=>g.id===ab.group)?.name||"";
+        const recs=(catalog[ab.group]||[]).slice(0,2);
+        const badge=score<60?`<span style="font-size:8px;color:#e05858;font-weight:700;margin-left:3px;">⚠</span>`:"";
+        const recHtml=recs.length?recs.map((r,i)=>`<div style="display:flex;align-items:center;gap:4px;padding:3px 6px;background:${BG2};border-radius:4px;margin-top:2px;"><span style="font-size:8.5px;color:${gc};font-weight:700;">${i+1}</span><span style="font-size:8.5px;color:${TXT2};">${E(r)}</span></div>`).join(""):`<div style="font-size:8px;color:${TXT4};margin-top:2px;">항목 없음</div>`;
+        return `<div style="border-left:3px solid ${gc};padding:6px 8px;background:${BG3};border-radius:0 5px 5px 0;margin-bottom:6px;"><div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;"><span style="font-size:10px;font-weight:700;color:${gc};">${E(ab.label)}</span><span style="background:${gc}33;color:${gc};border-radius:3px;padding:1px 5px;font-size:9px;font-weight:700;">${score}점</span><span style="font-size:8px;color:${TXT4};">${E(grpName)}</span>${badge}</div>${recHtml}</div>`;
+      }).join("");
+      trainingHtml=`<div style="margin-top:12px;border:1px solid ${BORDER};border-radius:6px;overflow:hidden;">
+        <div style="background:${BG3};color:${TXT};padding:7px 14px;font-size:10px;font-weight:700;letter-spacing:1px;border-bottom:1px solid ${BORDER};">⚽ 맞춤 훈련 추천 (약점 역량 기반)</div>
+        <div style="padding:10px 14px;background:${BG2};">
+          <div style="display:flex;gap:12px;">
+            <div style="flex:1;">${colA}</div>
+            ${colB?`<div style="width:1px;background:${BORDER2};flex-shrink:0;"></div><div style="flex:1;">${colB}</div>`:""}
+          </div>
+        </div>
+      </div>`;
+    }
+  }
+
   const body=`
   <div style="background:${BG3};color:${TXT};padding:13px 18px;border-radius:7px 7px 0 0;display:flex;align-items:center;border:1px solid ${BORDER};border-bottom:none;">
     <div><div style="font-size:8.5px;letter-spacing:2px;opacity:0.6;text-transform:uppercase;margin-bottom:2px;">EZRA FOOTBALL CLUB · Player Report</div>
@@ -962,6 +1023,7 @@ function buildPlayerReportFullDoc(p, team, abilities, groups, radarAxes){
     </div>
   </div>
   ${growthHtml}
+  ${trainingHtml}
   <div style="margin-top:12px;padding-top:7px;border-top:1px solid ${BORDER2};font-size:8.5px;color:${TXT4};text-align:center;letter-spacing:1px;">EZRA FOOTBALL CLUB · ${E(p.name)} · ${date}</div>`;
 
   return `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"/>
@@ -1877,7 +1939,7 @@ export default function App(){
     if(!display) return;
     const team = display.tid ? teamMap[display.tid] : null;
     const printRadar = groups.map(g => ({ id:g.id, label:g.name, keys:(abilitiesByGroup[g.id]||[]).map(a=>a.key) }));
-    openPrintWindowFullDoc(buildPlayerReportFullDoc(display, team, abilities, groups, printRadar));
+    openPrintWindowFullDoc(buildPlayerReportFullDoc(display, team, abilities, groups, printRadar, trainCatalog));
   }
 
   const NAV=["선수","팀 관리","베스트 11","경기 일정"];
