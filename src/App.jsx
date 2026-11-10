@@ -62,6 +62,13 @@ const DEFAULT_RADAR = [
 const DEFAULT_SCHEMA = { groups: DEFAULT_GROUPS, abilities: DEFAULT_ABILITIES, radar: DEFAULT_RADAR };
 const ALL_ATTR_KEYS = DEFAULT_ABILITIES.map(a => a.key);
 
+// 훈련 카탈로그 기본값 (groupId → 훈련 항목 목록)
+const DEFAULT_TRAINING_CATALOG = {
+  g_tech: ["콘 드리블 코스", "짧은 패스 벽패스 드릴", "1:1 슈팅 마무리", "볼 컨트롤 트래핑"],
+  g_phys: ["인터벌 러닝", "래더 민첩성 훈련", "플라이오메트릭 점프", "코어 근력 서킷"],
+  g_ment: ["소그룹 전술 게임", "압박 상황 의사결정 드릴", "팀 커뮤니케이션 세션", "루틴·심호흡 멘탈 루틴"],
+};
+
 // 능력치 추가/편집 시 고를 수 있는 단위 프리셋 ("" = 0~100 점수형)
 const UNIT_PRESETS = ["", "회", "초", "분", "kg", "m", "cm", "점", "%", "골", "개"];
 
@@ -1333,6 +1340,8 @@ export default function App(){
   const [cmpScope, setCmpScope] = useState("all"); // 평균 비교 대상: all | pos | team
   const [schema, setSchema] = useState(DEFAULT_SCHEMA); // 사용자 편집 가능한 능력치 스키마
   const [attrMgrOpen, setAttrMgrOpen] = useState(false); // 능력치 관리 모달
+  const [trainCatalog, setTrainCatalog] = useState(DEFAULT_TRAINING_CATALOG); // 훈련 카탈로그
+  const [trainCatalogOpen, setTrainCatalogOpen] = useState(false); // 훈련 카탈로그 편집 모달
   const [radarEditOpen, setRadarEditOpen] = useState(false); // 선수별 레이더 편집 모달
   const [mentalSurveyPlayer, setMentalSurveyPlayer] = useState(null); // 멘탈 설문 대상 선수
   const [radarGroup, setRadarGroup] = useState(null); // 그룹 레이더 드릴다운 대상(그룹 id) / null=오버뷰
@@ -1357,11 +1366,13 @@ export default function App(){
     const st = localStorage.getItem("ezra-teams");
     const sm = localStorage.getItem("ezra-matches");
     const ss = localStorage.getItem("ezra-schema");
+    const sc = localStorage.getItem("ezra-training-catalog");
     const p = sp ? JSON.parse(sp) : INIT_PLAYERS;
     const t = st ? JSON.parse(st) : INIT_TEAMS;
     const m = sm ? JSON.parse(sm) : [];
     setPlayers(p); setSel(p[0]||null); setTeams(t); setMatches(m);
     setSchema(ss ? normalizeSchema(JSON.parse(ss)) : DEFAULT_SCHEMA);
+    setTrainCatalog(sc ? JSON.parse(sc) : DEFAULT_TRAINING_CATALOG);
   }
 
   // 이 기기가 마지막으로 동기화한 클라우드 버전의 시각(uid별로 저장) — 기기 간 자동 동기화 기준점
@@ -1408,6 +1419,7 @@ export default function App(){
             const cloudMatches = data.matches || [];
             setPlayers(cloudPlayers); setSel(cloudPlayers[0]||null); setTeams(cloudTeams); setMatches(cloudMatches);
             setSchema(data.attrSchema ? normalizeSchema(data.attrSchema) : DEFAULT_SCHEMA);
+            setTrainCatalog(data.trainingCatalog || DEFAULT_TRAINING_CATALOG);
             setLocalSyncedAt(user.uid, cloudUpdatedAt);
             setCloudReady(true);
           } else {
@@ -1452,14 +1464,19 @@ export default function App(){
     localStorage.setItem("ezra-schema", JSON.stringify(schema));
   }, [schema, user]);
 
+  useEffect(() => {
+    if(user) return;
+    localStorage.setItem("ezra-training-catalog", JSON.stringify(trainCatalog));
+  }, [trainCatalog, user]);
+
   // 로그인 상태: 변경될 때마다 자동으로 Firebase에 저장하고, 이 기기의 동기화 시각도 갱신
   useEffect(() => {
     if(!user || !cloudReady) return;
     const ts = Date.now();
-    setDoc(doc(db, "users", user.uid), { players, teams, matches, attrSchema: schema, updatedAt: ts }, { merge: true })
+    setDoc(doc(db, "users", user.uid), { players, teams, matches, attrSchema: schema, trainingCatalog: trainCatalog, updatedAt: ts }, { merge: true })
       .then(() => setLocalSyncedAt(user.uid, ts))
       .catch(e => { console.error("클라우드 저장 실패", e); setCloudError(e.code || e.message || String(e)); });
-  }, [players, teams, matches, schema, user, cloudReady]);
+  }, [players, teams, matches, schema, trainCatalog, user, cloudReady]);
 
   async function handleLogin(){
     try { await signInWithPopup(auth, googleProvider); }
@@ -1862,7 +1879,7 @@ export default function App(){
   }
 
   const NAV=["선수","팀 관리","베스트 11","경기 일정"];
-  const DTABS=["개요","능력치","포지션 적합도","성장 추적"];
+  const DTABS=["개요","능력치","포지션 적합도","성장 추적","훈련 추천"];
 
   const cardStyle = {background:"#0a1c34",border:"1px solid #123258",borderRadius:8,padding:"12px 15px"};
 
@@ -2437,6 +2454,58 @@ export default function App(){
                   );
                 })()}
 
+                {dtab==="훈련 추천" && (()=>{
+                  const scored = abilities
+                    .map(ab => ({ ab, score: abScore(ab, display.attrs?.[ab.key]) }))
+                    .filter(x => x.score !== null)
+                    .sort((a, b) => a.score - b.score);
+                  const weak = scored.slice(0, Math.max(3, scored.filter(x=>x.score<60).length));
+                  const topWeak = weak.slice(0, Math.max(3, weak.filter(x=>x.score<60).length)).slice(0,Math.max(3,1));
+                  // TOP 3 (또는 score<60 전부, 최소 3개)
+                  const finalWeak = scored.slice(0, Math.max(3, scored.filter(x=>x.score<60).length)).slice(0,10);
+                  const displayWeak = finalWeak.slice(0,3).concat(finalWeak.slice(3).filter(x=>x.score<60));
+                  return (
+                  <div>
+                    <div style={{...cardStyle,marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+                      <span style={{fontSize:11,color:"#4aa3e0",fontWeight:700,letterSpacing:1}}>⚽ 약점 역량 기반 맞춤 훈련 제안</span>
+                      <button onClick={()=>setTrainCatalogOpen(true)} style={{background:"transparent",border:"1px solid #1d4a86",color:"#6f97c4",borderRadius:5,padding:"4px 11px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>🔧 카탈로그 편집</button>
+                    </div>
+                    {displayWeak.length===0 && (
+                      <div style={{...cardStyle,color:"#4a6ea0",fontSize:12,textAlign:"center",padding:24}}>능력치 데이터가 없습니다. 능력치를 입력해주세요.</div>
+                    )}
+                    {displayWeak.map(({ab, score})=>{
+                      const gi = groups.findIndex(g=>g.id===ab.group);
+                      const gc = groupColorAt(gi < 0 ? 0 : gi);
+                      const grpName = groups.find(g=>g.id===ab.group)?.name || "";
+                      const recs = (trainCatalog[ab.group] || []).slice(0,2);
+                      return (
+                        <div key={ab.key} style={{...cardStyle,marginBottom:10,borderLeft:`3px solid ${gc}`}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                            <span style={{fontWeight:700,color:gc,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif"}}>{ab.label}</span>
+                            <span style={{background:gc+"33",color:gc,borderRadius:4,padding:"1px 7px",fontSize:11,fontWeight:700}}>{score}점</span>
+                            <span style={{fontSize:10,color:"#4a6ea0",marginLeft:2}}>{grpName}</span>
+                            {score<60 && <span style={{fontSize:10,color:"#e05858",fontWeight:700,marginLeft:"auto"}}>⚠ 취약</span>}
+                          </div>
+                          {recs.length > 0 ? (
+                            <div>
+                              <div style={{fontSize:10,color:"#4a6ea0",marginBottom:5,letterSpacing:0.5}}>추천 훈련</div>
+                              {recs.map((r,i)=>(
+                                <div key={i} style={{display:"flex",alignItems:"center",gap:7,padding:"5px 8px",background:"#071526",borderRadius:5,marginBottom:4}}>
+                                  <span style={{color:gc,fontSize:12,fontWeight:700}}>{i+1}</span>
+                                  <span style={{fontSize:12,color:"#c0d4ee"}}>{r}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{fontSize:11,color:"#4a6ea0"}}>이 그룹에 훈련 항목이 없습니다. 카탈로그 편집에서 추가하세요.</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  );
+                })()}
+
                 {dtab==="성장 추적" && (
                   <div>
                     <div style={{display:"flex",alignItems:"center",marginBottom:11}}>
@@ -2886,6 +2955,68 @@ export default function App(){
             <div style={{padding:"12px 18px",borderTop:"1px solid #1d4a86",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
               <button onClick={()=>{ if(window.confirm("모든 그룹/능력치를 기본값으로 되돌릴까요?\n선수에 입력된 값 자체는 유지됩니다.")){ setSchema(DEFAULT_SCHEMA); setACat(DEFAULT_SCHEMA.groups[0].id); } }} style={{background:"transparent",border:"1px solid #1d4a86",color:"#6f97c4",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>기본값 복원</button>
               <button onClick={()=>setAttrMgrOpen(false)} style={{background:"#1e6fbf",border:"none",color:"#fff",borderRadius:5,padding:"8px 22px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>완료</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 훈련 카탈로그 편집 모달 */}
+      {trainCatalogOpen && (
+        <div onClick={()=>setTrainCatalogOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#0a1a2e",border:"1px solid #1d4a86",borderRadius:12,width:520,maxWidth:"96vw",maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
+            <div style={{display:"flex",alignItems:"center",padding:"14px 18px",borderBottom:"1px solid #1d4a86"}}>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:16,fontWeight:700,color:"#4499dd"}}>🔧 훈련 카탈로그 편집</div>
+              <button onClick={()=>setTrainCatalogOpen(false)} style={{marginLeft:"auto",background:"transparent",border:"none",color:"#6f97c4",fontSize:18,cursor:"pointer"}}>✕</button>
+            </div>
+            <div style={{padding:"14px 18px",overflowY:"auto"}}>
+              <div style={{fontSize:11,color:"#6f97c4",marginBottom:12,lineHeight:1.6,background:"#0a1c34",border:"1px solid #123258",borderRadius:6,padding:"8px 11px"}}>
+                그룹별 훈련 항목을 추가·수정·삭제할 수 있습니다. 각 약점 역량에 이 목록에서 2개씩 추천됩니다.
+              </div>
+              {groups.map((g,gi)=>{
+                const gc = groupColorAt(gi);
+                const items = trainCatalog[g.id] || [];
+                return (
+                  <div key={g.id} style={{border:`1px solid ${gc}44`,borderLeft:`3px solid ${gc}`,borderRadius:8,marginBottom:12,overflow:"hidden"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,background:"#0c1f38",padding:"8px 12px"}}>
+                      <span style={{fontWeight:700,color:gc,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif"}}>{g.name}</span>
+                      <span style={{fontSize:10,color:"#4a6a8a"}}>{items.length}개</span>
+                      <button
+                        onClick={()=>setTrainCatalog(c=>({...c,[g.id]:[...(c[g.id]||[]),"새 훈련 항목"]}))}
+                        style={{marginLeft:"auto",background:"#0d3a24",border:"1px solid #1e5a30",color:"#69f0ae",borderRadius:5,padding:"4px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                        + 항목 추가
+                      </button>
+                    </div>
+                    <div style={{padding:"6px 12px 10px"}}>
+                      {items.map((item, idx)=>(
+                        <div key={idx} style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
+                          <input
+                            value={item}
+                            onChange={e=>{
+                              const updated=[...items]; updated[idx]=e.target.value;
+                              setTrainCatalog(c=>({...c,[g.id]:updated}));
+                            }}
+                            style={{...INPUT,flex:1}}
+                          />
+                          <button
+                            onClick={()=>setTrainCatalog(c=>({...c,[g.id]:items.filter((_,i)=>i!==idx)}))}
+                            style={{background:"transparent",border:"1px solid #5a1a1a",color:"#cc4444",borderRadius:5,padding:"4px 8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>
+                            삭제
+                          </button>
+                        </div>
+                      ))}
+                      {items.length===0 && <div style={{fontSize:11,color:"#4a6ea0",padding:"4px 0"}}>항목 없음 — "+ 항목 추가"로 추가하세요.</div>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{padding:"12px 18px",borderTop:"1px solid #1d4a86",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+              <button
+                onClick={()=>{ if(window.confirm("훈련 카탈로그를 기본값으로 되돌릴까요?")) setTrainCatalog(DEFAULT_TRAINING_CATALOG); }}
+                style={{background:"transparent",border:"1px solid #1d4a86",color:"#6f97c4",borderRadius:5,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>
+                기본값 복원
+              </button>
+              <button onClick={()=>setTrainCatalogOpen(false)} style={{background:"#1e6fbf",border:"none",color:"#fff",borderRadius:5,padding:"8px 22px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>완료</button>
             </div>
           </div>
         </div>
